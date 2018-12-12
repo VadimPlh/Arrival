@@ -1,6 +1,6 @@
 ## Useful Spec (Distributed Sustem)
-* [CosmoDB-spec](https://github.com/Azure/azure-cosmos-tla)
-* [CosmoDB-video](https://youtu.be/Ej6dlMBvUBI)
+* [CosmosDB-spec](https://github.com/Azure/azure-cosmos-tla)
+* [CosmosDB-video](https://youtu.be/Ej6dlMBvUBI)
 * [Kafka-spec](https://github.com/hachikuji/kafka-specification)
 * [Kafka-video](https://kafka-summit.org/sessions/hardening-kafka-replication/)
 

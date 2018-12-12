@@ -3,6 +3,7 @@
 * [CosmosDB-video](https://youtu.be/Ej6dlMBvUBI)
 * [Kafka-spec](https://github.com/hachikuji/kafka-specification)
 * [Kafka-video](https://kafka-summit.org/sessions/hardening-kafka-replication/)
+* [Linearizability](https://github.com/lorin/tla-linearizability)
 
 ## Useful Spec (Distributed algo)
 * [SI](https://github.com/will62794/snapshot-isolation-spec)

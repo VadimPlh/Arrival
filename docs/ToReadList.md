@@ -2,6 +2,7 @@
 * [CosmosDB-spec](https://github.com/Azure/azure-cosmos-tla)
 * [CosmosDB-video](https://youtu.be/Ej6dlMBvUBI)
 * [Kafka-spec](https://github.com/hachikuji/kafka-specification)
+> weak fairness and strong fairness [The Temporal Logic of Actions](https://lamport.azurewebsites.net/pubs/lamport-actions.pdf)
 * [Kafka-video](https://kafka-summit.org/sessions/hardening-kafka-replication/)
 * [Linearizability](https://github.com/lorin/tla-linearizability)
 

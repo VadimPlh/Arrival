@@ -9,3 +9,5 @@
 ## Useful Spec (Distributed algo)
 * [SI](https://github.com/will62794/snapshot-isolation-spec)
 * [Amazon-SI](https://github.com/pron/amazon-snapshot-spec)
+* LeaderElection ZK: Довольно просто алгоритм, который используется
+    во многих проектах [LE](https://zookeeper.apache.org/doc/current/recipes.html#sc_leaderElection) скоро должен появиться тут [twitter](https://twitter.com/vanlightly)

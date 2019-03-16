@@ -14,3 +14,4 @@
 * У каждой реплики есть [ReplicatedMergeTreeCleanupThread](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/MergeTree/ReplicatedMergeTreeCleanupThread.cpp#L20). Во время создания таблицы он [запускается](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/StorageReplicatedMergeTree.cpp#L224)
 * Тред [смотрит](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/MergeTree/ReplicatedMergeTreeCleanupThread.cpp#L69) на лог в зукипере забирает к себе все сушествующие записи
 * Выбирается записи, которые должны удалиться из активных 
+* 

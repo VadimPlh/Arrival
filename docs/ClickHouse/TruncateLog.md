@@ -13,5 +13,7 @@
 Что же происходит:
 * У каждой реплики есть [ReplicatedMergeTreeCleanupThread](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/MergeTree/ReplicatedMergeTreeCleanupThread.cpp#L20). Во время создания таблицы он [запускается](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/StorageReplicatedMergeTree.cpp#L224)
 * Тред [смотрит](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/MergeTree/ReplicatedMergeTreeCleanupThread.cpp#L69) на лог в зукипере забирает к себе все сушествующие записи
-* Выбирается записи, которые должны удалиться из активных 
+* Выбирается записи, которые должны удалиться (выбираем минимум из поинтеро активных реплик и восстанавливающихся, так же есть настройка, которая гооворит о том сколько записей мы точно оставим в логе)
+* Мы [помечаем](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/MergeTree/ReplicatedMergeTreeCleanupThread.cpp#L232) реплики у которых удалим лог, как is_lost
+* в транзакции смторим, что реплики не стали снова active и помечаем их умершими, так же надо смотреть, что мы не пометим все реплики lost, так как тогда они не смог восстановиться
 * 

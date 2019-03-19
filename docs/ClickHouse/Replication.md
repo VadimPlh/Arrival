@@ -15,7 +15,12 @@
 * Следующий шаг - это [commitPart](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/MergeTree/ReplicatedMergeTreeBlockOutputStream.cpp#L203)
 * Первым делом мы должны [выделить](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/MergeTree/ReplicatedMergeTreeBlockOutputStream.cpp#L215) для куска id, который будет уникальным для партиции.
 * Проверка для [дедупликации](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/StorageReplicatedMergeTree.cpp#L3688)
-*
+* [Пишем](https://github.com/yandex/ClickHouse/blob/a0d8743c4c1249f1e2394c6eb47bbbfcc83c502d/dbms/src/Storages/MergeTree/ReplicatedMergeTreeBlockOutputStream.cpp#L226) инфу о блоке
+* [Создаем](https://github.com/yandex/ClickHouse/blob/617a0a8938533f86902d431ae8b923b654932fc6/dbms/src/Storages/StorageReplicatedMergeTree.cpp#L4911) транзакцию со вской инфой для блока
+* [Добавляем](https://github.com/yandex/ClickHouse/blob/a0d8743c4c1249f1e2394c6eb47bbbfcc83c502d/dbms/src/Storages/MergeTree/ReplicatedMergeTreeBlockOutputStream.cpp#L252) запрос на добавление в лог
+* Осуществяем транзацию [тут](https://github.com/yandex/ClickHouse/blob/93356b519039aac5b9b2111ecb75344cc9ae62ee/dbms/src/Storages/MergeTree/ReplicatedMergeTreeBlockOutputStream.cpp#L304)
+* Если проблемы, то откатываем
+
 
 ### Выполнение лога
 * При создании таблицы создается таска, которая [выполняет](https://github.com/yandex/ClickHouse/blob/6b690aaf723e26fba65d83e06b6a2d029e028545/dbms/src/Storages/StorageReplicatedMergeTree.cpp#L237) очередь задач
@@ -34,3 +39,6 @@
 * [Ищем](https://github.com/yandex/ClickHouse/blob/6b690aaf723e26fba65d83e06b6a2d029e028545/dbms/src/Storages/StorageReplicatedMergeTree.cpp#L1255) реплику  нужным куском
 * Пытаемся [забарать](https://github.com/yandex/ClickHouse/blob/6b690aaf723e26fba65d83e06b6a2d029e028545/dbms/src/Storages/StorageReplicatedMergeTree.cpp#L1392) его у нее. (Там же с кворумом делаем обновление)
 * Если куска нигде нет, то делаем [enqueuePartForCheck](https://github.com/yandex/ClickHouse/blob/6b690aaf723e26fba65d83e06b6a2d029e028545/dbms/src/Storages/StorageReplicatedMergeTree.cpp#L1426)
+
+
+Что-то с PartCheker-ом

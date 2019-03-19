@@ -19,3 +19,5 @@
 
 ### Insert
 ----------
+вставка как обычная, но с условием [тут](https://github.com/yandex/ClickHouse/blob/a0d8743c4c1249f1e2394c6eb47bbbfcc83c502d/dbms/src/Storages/MergeTree/ReplicatedMergeTreeBlockOutputStream.cpp#L265)
+смторим, что реплика не рестартовала

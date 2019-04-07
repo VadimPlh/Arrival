@@ -13,11 +13,12 @@
     во многих проектах [LE](https://zookeeper.apache.org/doc/current/recipes.html#sc_leaderElection) скоро должен появиться тут [twitter](https://twitter.com/vanlightly)
 
 ## Useful links
-* [Вучить Pluscal за 21 час](https://learntla.com/)
+* [Уроки по TLA+](https://learntla.com/)
 * [Гугл-группа](https://groups.google.com/forum/#!forum/tlaplus)
 * [Книга](https://lamport.azurewebsites.net/tla/book.html?back-link=learning.html#book)
+* [Визуализация графа](https://stackoverflow.com/questions/52055716/tla-how-to-visualize-the-state-graph) визуализация автомата по спеке, если кол-во вершин не большое, то можно построить граф и посмотреть на переходы между состояниями
 
 ## Log
 * [Comparison between TLAPS and other proof assitants](https://groups.google.com/forum/#!topic/tlaplus/zm9ccHj0OiQ)
-* [ Fairness](https://groups.google.com/forum/#!topic/tlaplus/FqGPF_2-ljE)
+* [Fairness](https://groups.google.com/forum/#!topic/tlaplus/FqGPF_2-ljE)
 * [metadata blog](http://muratbuffalo.blogspot.com/search/label/tla)

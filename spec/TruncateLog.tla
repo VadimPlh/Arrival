@@ -122,6 +122,7 @@ Next ==
 Spec == Init /\ [][Next]_vars
              /\ WF_vars(Next)
              /\ WF_vars(ClearOldLog)
-
+             
+Simple == <>(deletedPrefix > 0)
 HasNotLostReplica == [](\A replica \in Replicas : ~IsLost(replica))
 =======================================================================================================

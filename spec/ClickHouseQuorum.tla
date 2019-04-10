@@ -4,8 +4,7 @@ EXTENDS TLC, Sequences, Integers, FiniteSets
 
 CONSTANTS 
     Replicas,
-    LenLog,
-    QuorunCount
+    QuorumCount
     
 NONE == "NONE"
 NULL == 0
@@ -30,50 +29,56 @@ vars == <<log, replicaState, nextRecordId, quorum>>
 
 IsActive(replica) == replicaState[replica].is_active
 
+GetReplicasWithPart(part) == {replica \in Replicas: part \in replicaState[replica].local_parts}
 
 Init ==
     /\ log = <<>>
-    /\ replicaState = [replica \in Replicas |-> [is_active |-> TRUE,
-                                                 log_pointer |-> NULL,
-                                                 local_log |-> <<>>]]
+    /\ replicaState = [replica \in Replicas |-> [log_pointer |-> NULL,
+                                                 local_parts |-> {}]]
     /\ nextRecordId = 1
-    /\ quorum = [val |-> NULL,
+    /\ quorum = [value |-> NULL,
                  replicas |-> {}]
                  
-AppendQuorum(replica) == quorum' = [val |-> quorum.val,
-                                    replicas |-> quorum.replicas \union {replica}]
-                                   
-FetchLog(replica) == replicaState' = [replicaState EXCEPT ![replica] = [
-                                      is_active |-> TRUE,
-                                      log_pointer |-> @.log_pointer + 1,
-                                      local_log |-> Append(@.local_log, log[@.log_pointer + 1])]]
+FetchLog(replica) == /\ replicaState' = [replicaState EXCEPT ![replica] = [
+                                         log_pointer |-> @.log_pointer + 1,
+                                         local_parts |-> @.local_parts \union {log[@.log_pointer + 1]}]]
+                 
+AppendQuorum(replica) == IF Cardinality(quorum.replicas) >= (QuorumCount - 1) THEN quorum' = [value |-> NULL,
+                                                                                              replicas |-> {}]
+                         ELSE quorum' = [value |-> quorum.value,
+                                         replicas |-> quorum.replicas \union {replica}]
     
-ExecuteLog == \E replica \in Replicas :
-    /\ IsActive(replica)
-    /\ IF replicaState[replica].log_pointer = Len(log) THEN AppendQuorum(replica)
-       ELSE FetchLog(replica)
-    /\ UNCHANGED <<log, replicaState, quorum>>
+ExecuteLog == 
+    /\ Len(log) > 0
+    /\ \E replica \in Replicas :
+        /\ replicaState[replica].log_pointer < (Len(log) - 1)
+        /\ FetchLog(replica)
+    /\ UNCHANGED <<log, nextRecordId, quorum>>
+    
+UpdateQuorum == 
+    /\ quorum.value # NULL
+    /\ \E replica \in Replicas :
+        /\ replica \notin quorum.replicas
+        /\ replicaState[replica].log_pointer = (Len(log) - 1)
+        /\ AppendQuorum(replica)
+        /\ FetchLog(replica)
+    /\ UNCHANGED <<log, nextRecordId>>
  
-QuorumInsert == \E replica \in Replicas :
-    /\ IsActive(replica)
+QuorumInsert == 
     /\ quorum.value = NULL
-    /\ quorum' = [replicas |-> {replica},
-                 value |-> nextRecordId]
+    /\ quorum' = [replicas |-> {},
+                  value |-> nextRecordId]
+    /\ log' = Append(log, nextRecordId)
     /\ nextRecordId' = nextRecordId + 1
-    /\ UNCHANGED <<log, replicaState>>
-    
-AppendQuorumReplicas == \E replica \in Replicas :
-    /\ replicaState[replica].active = TRUE
-    /\ replica \notin quorum.replicas
-    /\ quorum' = [replicas |-> quorum.replicas \union {replica},
-                 value |-> quorum.value]
-    
-    /\ UNCHANGED <<log, replicaState, nextRecordId>>
+    /\ UNCHANGED <<replicaState>>
     
 Next ==
     \/ ExecuteLog
+    \/ UpdateQuorum
     \/ QuorumInsert
-    \/ AppendQuorumReplicas
 
 Spec == Init /\ [][Next]_vars
+             /\ WF_vars(Next)
+             
+QuorumSelect == [](Len(log) = 0 \/ \A i \in 1..Len(log): Cardinality(GetReplicasWithPart(log[i])) >= QuorumCount \/ quorum.value = log[i])
 ======================================================================

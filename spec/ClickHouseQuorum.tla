@@ -22,7 +22,7 @@ VARIABLES
     \* Unique id generator for new records in log
     nextRecordId,
     
-    \* Quoru, in ZK
+    \* Quorum, in ZK
     quorum
     
 vars == <<log, replicaState, nextRecordId, quorum>>

@@ -123,20 +123,20 @@ ExecuteLog(replica) ==
     /\ UNCHANGED <<log, nextRecordId, quorum, lastAddedValue, history>>
     
 UpdateQuorumReplicas(replica) == 
-    /\ replica \notin quorum.replicas
-    /\ quorum.replicas \intersect GetActiveReplicas # {}
     /\ quorum' = [value |-> quorum.value,
                   replicas |-> quorum.replicas \union {replica}]
     
 UpdateQuorum(replica) == 
     /\ quorum.value # NONE
     /\ replica \notin quorum.replicas
+    /\ quorum.replicas \intersect GetActiveReplicas # {}
     /\ replicaState[replica].log_pointer = (Len(log) - 1)
     /\ UpdateQuorumReplicas(replica)
     /\ FetchLog(replica)
     /\ UNCHANGED <<log, nextRecordId, history, lastAddedValue>>
     
 FailedQuorum(replica) ==
+    /\ quorum.value # NONE
     /\ replica \notin quorum.replicas
     /\ quorum.replicas \intersect GetActiveReplicas = {}
     /\ quorum' = NULLQuorum

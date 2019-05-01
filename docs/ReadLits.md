@@ -9,8 +9,7 @@
 ## Useful Spec (Distributed algo)
 * [SI](https://github.com/will62794/snapshot-isolation-spec)
 * [Amazon-SI](https://github.com/pron/amazon-snapshot-spec)
-* LeaderElection ZK: Довольно просто алгоритм, который используется
-    во многих проектах [LE](https://zookeeper.apache.org/doc/current/recipes.html#sc_leaderElection) скоро должен появиться тут [twitter](https://twitter.com/vanlightly)
+* LeaderElection ZK: Довольно просто алгоритм, который используется во многих проектах [LE](https://zookeeper.apache.org/doc/current/recipes.html#sc_leaderElection) скоро должен появиться тут [twitter](https://twitter.com/vanlightly)
 
 ## Useful links
 * [Уроки по TLA+](https://learntla.com/)
@@ -23,3 +22,7 @@
 * [Fairness](https://groups.google.com/forum/#!topic/tlaplus/FqGPF_2-ljE)
 * [metadata blog](http://muratbuffalo.blogspot.com/search/label/tla)
 * [Teaching Rigorous Distributed Systems With Efficient Model Checking](https://ellismichael.com/papers/dslabs-eurosys19.pdf)
+  - Новые подходы к проверке(удаление нерелевантных состояний и поиск промежуточных состояний, прежде чем уходить вглубь)
+  - Поверх кода клиента пишется обработчик событий, который команды отправляет клиенту
+  - Предполагаем asynchronous net model
+  -

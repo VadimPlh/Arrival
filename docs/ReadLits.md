@@ -22,3 +22,4 @@
 * [Comparison between TLAPS and other proof assitants](https://groups.google.com/forum/#!topic/tlaplus/zm9ccHj0OiQ)
 * [Fairness](https://groups.google.com/forum/#!topic/tlaplus/FqGPF_2-ljE)
 * [metadata blog](http://muratbuffalo.blogspot.com/search/label/tla)
+* [Teaching Rigorous Distributed Systems With Efficient Model Checking](https://ellismichael.com/papers/dslabs-eurosys19.pdf)

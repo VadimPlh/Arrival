@@ -40,7 +40,13 @@ GetActiveReplicas == {replica \in Replicas: IsActive(replica)}
  *)
 
 GetReplicasWithPart(part) == {replica \in Replicas: part \in replicaState[replica].local_parts}
-                   
+
+(*
+ * Get data or id's from <<>>
+ *)
+GetIds(f) == {f[x].id: x \in DOMAIN f}
+GetData(f) == {f[x].data: x \in DOMAIN f}
+                    
 (*
  * Get record from log and update local_parts
  *) 

@@ -35,9 +35,19 @@ HistoryEvents == HistoryEventInsert \union HistoryEventSelect
 TypeOK == /\ nextRecordData \in Nat
           /\ quorum \in QuorumState
           /\ lastAddeddata \in Nat
+ 
+GetCommitedId == {record_id \in GetIds(log): record_id \notin GetIds(failedParts) /\ record_id # quorum.id}
 
-GetId(f) == {f[x].id : x \in DOMAIN f}  
-GetCommitedId == {record_id \in GetId(log): record_id \notin failedParts /\ record_id # quorum.id}
+(*
+ * Get id for new record
+ *)
+ 
+GetNewRecordId == IF \E new_id \in RecordsId: 
+    /\ new_id \notin GetCommitedId
+    /\ new_id \notin GetIds(failedParts) THEN CHOOSE new_id \in RecordsId: 
+    /\ new_id \notin GetCommitedId
+    /\ new_id \notin GetIds(failedParts)
+    ELSE NONE
 
 (*
  * Constructor for history events
@@ -54,7 +64,20 @@ SelectEvents(data) == [type |-> "Read", event_id |-> GetHistoryId, data |-> data
 
 GetSelectFromHistory(h) == {record \in Range(h): record.type = "Read"}
 
+(*
+ * Utilities for work with Quorum
+ *)
+
 IsCurrentQuorum(id) == id = quorum.id
+IsReplicaInQuorum(replica) == replica \in quorum.replicas
+UpdateQuorumReplicas(replica) == quorum' = [data |-> quorum.data,
+                                            replicas |-> quorum.replicas \union {replica},
+                                            id |-> quorum.id]
+                                            
+QuorumIsAlive == /\ quorum.replicas # {}
+                 /\ GetActiveReplicas \intersect quorum.replicas = {}
+                 
+UpdateFailedParts(id, value) == failedParts' = Append(failedParts, [id |-> id, data |-> value])
 
 IncData == nextRecordData' = nextRecordData + 1         
 
@@ -66,7 +89,7 @@ Init ==
     /\ InitNextRecordData
     /\ quorum = NullQuorum
     /\ lastAddeddata = NONE
-    /\ failedParts = {}
+    /\ failedParts = <<>>
     /\ history = <<>>
 
     
@@ -81,20 +104,15 @@ BecomeInactive(replica) ==
 ExecuteLog(replica) == 
     /\ replicaState[replica].log_pointer <= Len(log)
     /\ ~IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
-    /\ quorum.id \notin failedParts
+    /\ quorum.id \notin GetIds(failedParts)
     /\ FetchLog(replica)
     /\ UNCHANGED <<log, nextRecordData, quorum, failedParts, lastAddeddata, history>>
-    
-UpdateQuorumReplicas(replica) == quorum' = [data |-> quorum.data,
-                                            replicas |-> quorum.replicas \union {replica},
-                                            id |-> quorum.id]
     
 UpdateQuorum(replica) == 
     /\ replicaState[replica].log_pointer = Len(log)
     /\ IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
-    /\ replica \notin quorum.replicas
-    /\ \/ quorum.replicas = {}
-       \/ quorum.replicas \intersect GetActiveReplicas # {}
+    /\ ~IsReplicaInQuorum(replica)
+    /\ ~QuorumIsAlive
     /\ UpdateQuorumReplicas(replica)
     /\ FetchLog(replica)
     /\ UNCHANGED <<log, nextRecordData, history, failedParts, lastAddeddata>>
@@ -102,16 +120,15 @@ UpdateQuorum(replica) ==
 FailedQuorum(replica) ==
     /\ replicaState[replica].log_pointer = Len(log)
     /\ IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
-    /\ replica \notin quorum.replicas
-    /\ quorum.replicas # {}
-    /\ GetActiveReplicas \intersect quorum.replicas = {}
-    /\ failedParts' = failedParts \union {quorum.id}
+    /\ ~IsReplicaInQuorum(replica)
+    /\ QuorumIsAlive
+    /\ UpdateFailedParts(quorum.id, quorum.data)
     /\ quorum' = NullQuorum
     /\ UNCHANGED <<log, replicaState, nextRecordData, lastAddeddata, history>>
     
 EndQuorum(replica) ==
     /\ quorum.id # NONE
-    /\ replica \in quorum.replicas
+    /\ IsReplicaInQuorum(replica)
     /\ Cardinality(quorum.replicas) >= QuorumCount
     /\ quorum' = NullQuorum
     /\ history' = Append(history, InsertEvents(quorum.data))
@@ -120,13 +137,12 @@ EndQuorum(replica) ==
  
 QuorumInsert == 
     /\ quorum.id = NONE
-    /\ \E new_record_id \in RecordsId:
-        /\ new_record_id \notin failedParts
-        /\ new_record_id \notin GetCommitedId
-        /\ quorum' = [replicas |-> {},
-                      data |-> nextRecordData,
-                      id |-> new_record_id]
-        /\ log' = Append(log, [data |-> nextRecordData,
+    /\ LET new_record_id == GetNewRecordId
+       IN  /\ new_record_id # NONE
+           /\ quorum' = [replicas |-> {},
+                         data |-> nextRecordData,
+                         id |-> new_record_id]
+           /\ log' = Append(log, [data |-> nextRecordData,
                                id |-> new_record_id])
     /\ IncData
     /\ UNCHANGED <<replicaState, lastAddeddata, history, failedParts>>
@@ -146,12 +162,12 @@ QuorumReadv2 ==
     /\ Cardinality(GetSelectFromHistory(history)) < HistoryLength
     /\ \E replica \in Replicas :
         /\ lastAddeddata \in replicaState[replica].local_parts
-        /\ LET max_data == Max(replicaState[replica].local_parts \ {quorum.data})
+        /\ LET max_data == Max(replicaState[replica].local_parts \ ({quorum.data} \union GetData(failedParts)))
            IN history' = Append(history, SelectEvents(max_data))
     /\ UNCHANGED <<log, replicaState, nextRecordData, quorum, lastAddeddata, failedParts>>
     
 LegitimateTermination ==
-    /\ failedParts \union GetCommitedId = RecordsId
+    /\ GetIds(failedParts) \union GetCommitedId = RecordsId
     /\ Cardinality(GetSelectFromHistory(history)) = HistoryLength
     /\ UNCHANGED vars
     
@@ -176,12 +192,12 @@ Spec == Init /\ [][Next]_vars
 
 
           
-QuorumSelect == [](Len(log) = 0 \/ \A i \in 1..Len(log): Cardinality(GetReplicasWithPart(log[i].data)) >= QuorumCount \/ quorum.id = log[i].id \/ log[i].id \in failedParts)
+QuorumSelect == [](Len(log) = 0 \/ \A i \in 1..Len(log): Cardinality(GetReplicasWithPart(log[i].data)) >= QuorumCount \/ quorum.id = log[i].id \/ log[i].id \in GetIds(failedParts))
 
 (*
  * Get Trace with not empty failedParts
  *)
-NotFailedParts == [](failedParts = {})
+NotFailedParts == [](failedParts = <<>>)
 
 Linearizability == \A i, j \in DOMAIN history : /\ i < j
                                                 => history[j].data >= history[i].data

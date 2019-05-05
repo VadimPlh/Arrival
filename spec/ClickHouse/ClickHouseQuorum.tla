@@ -1,199 +1,170 @@
 ------------------------------------------MODULE ClickHouseQuorum-------------------------------------------
 
-EXTENDS TLC, Sequences, Integers, FiniteSets
+EXTENDS TLC, Sequences, Integers, FiniteSets, Util
 
 CONSTANTS 
-    Replicas,
     QuorumCount,
-    LogLength,
-    HistoryLength,
-    NONE
+    HistoryLength
 
-VARIABLES
-    \* Log in zookeeper.
-    log,
-
-    \* State replica. Active or not and e.t.c
-    replicaState,
-
-    \* Unique id generator for new records in log.
-    nextRecordId,
-    
+VARIABLES    
     \* Quorum, in ZK.
     quorum,
     
-    lastAddedValue,
+    failedParts,
+    
+    lastAddeddata,
     
     \* Variabe for check properties.
     history
     
-vars == <<log, replicaState, nextRecordId, quorum, lastAddedValue, history>>
+vars == <<log, replicaState, nextRecordData, quorum, failedParts, lastAddeddata, history>>
 
-(*
- * TLA+ utilities 
- *)
- 
-Range(f) == {f[x] : x \in DOMAIN f}
-
-Max(S) == IF S # {} THEN CHOOSE x \in S:
-                      /\ \A y \in S \ {x}:
-                          y <= x
-          ELSE 0
-
-(*
- * Util for work with is_active status
- *)
- 
-IsActive(replica) == replicaState[replica].is_active
-GetActiveReplicas == {replica \in Replicas: IsActive(replica)}
           
 (*
  * TypeInv for model, because TLA+ is not statically typed
  *)
  
-QuorumState == [value: Nat,
-                replicas: SUBSET Replicas]
+QuorumState == [data: Nat,
+                replicas: SUBSET Replicas,
+                id: Nat \union NONE]
                 
 HistoryEventInsert == [type: "Write", event_id: Nat, data: Nat]
 HistoryEventSelect == [type: "Read", event_id: Nat, data: Nat]
 HistoryEvents == HistoryEventInsert \union HistoryEventSelect
  
-TypeOK == /\ nextRecordId \in Nat
+TypeOK == /\ nextRecordData \in Nat
           /\ quorum \in QuorumState
-          /\ lastAddedValue \in Nat
+          /\ lastAddeddata \in Nat
+
+GetId(f) == {f[x].id : x \in DOMAIN f}  
+GetCommitedId == {record_id \in GetId(log): record_id \notin failedParts /\ record_id # quorum.id}
+
 (*
  * Constructor for history events
  *)
  
 GetHistoryId == Len(history) + 1
 
-InsertEvents(value) == [type |-> "Write", event_id |-> GetHistoryId, data |-> value]
-SelectEvents(value) == [type |-> "Read", event_id |-> GetHistoryId, data |-> value]
+InsertEvents(data) == [type |-> "Write", event_id |-> GetHistoryId, data |-> data]
+SelectEvents(data) == [type |-> "Read", event_id |-> GetHistoryId, data |-> data]
 
 (*
  * Get smth for check Invarioants
  *)
 
-GetReplicasWithPart(part) == {replica \in Replicas: part \in replicaState[replica].local_parts}
-
 GetSelectFromHistory(h) == {record \in Range(h): record.type = "Read"}
 
-GetMaxAddedPart == IF quorum.value # NONE THEN log[Len(log) - 1]
-                   ELSE log[Len(log)]
-                   
-(*
- * Get record from log and update local_parts
- *) 
+IsCurrentQuorum(id) == id = quorum.id
 
-FetchLog(replica) == replicaState' = [replicaState EXCEPT ![replica] = [is_active |-> @.is_active,
-                                                                        log_pointer |-> @.log_pointer + 1,
-                                                                        local_parts |-> @.local_parts \union {log[@.log_pointer + 1]}]]
+IncData == nextRecordData' = nextRecordData + 1         
 
-NULLQuorum == [value |-> NONE, replicas |-> {}]
+NullQuorum == [data |-> NONE, replicas |-> {}, id |-> NONE]
 
 Init ==
-    /\ log = <<>>
-    /\ replicaState = [replica \in Replicas |-> [is_active |-> TRUE,
-                                                 log_pointer |-> NONE,
-                                                 local_parts |-> {}]]
-    /\ nextRecordId = 1
-    /\ quorum = NULLQuorum
-    /\ lastAddedValue = NONE
+    /\ InitLog
+    /\ InitReplicaState
+    /\ InitNextRecordData
+    /\ quorum = NullQuorum
+    /\ lastAddeddata = NONE
+    /\ failedParts = {}
     /\ history = <<>>
 
-
-BecomeInactive(replica) ==
-    /\ replicaState' = [replicaState EXCEPT ![replica] = [is_active |-> FALSE,
-                                                          log_pointer |-> @.log_pointer,
-                                                          local_parts |-> @.local_parts]]
-    /\ UNCHANGED <<log, nextRecordId, quorum, lastAddedValue, history>>
     
 BecomeActive(replica) ==
-    /\ replicaState' = [replicaState EXCEPT ![replica] = [is_active |-> TRUE,
-                                                          log_pointer |-> @.log_pointer,
-                                                          local_parts |-> @.local_parts]]
-    /\ UNCHANGED <<log, nextRecordId, quorum, lastAddedValue, history>>
+    /\ RepicaStartActive(replica)
+    /\ UNCHANGED <<log, nextRecordData, quorum, failedParts, lastAddeddata, history>>
+    
+BecomeInactive(replica) ==
+    /\ RepicaStartInactive(replica)
+    /\ UNCHANGED <<log, nextRecordData, quorum, failedParts,lastAddeddata, history>>
 
 ExecuteLog(replica) == 
-    /\ Len(log) > 0
-    /\ \/ replicaState[replica].log_pointer < (Len(log) - 1)
-       \/ /\ replicaState[replica].log_pointer = (Len(log) - 1)
-          /\ quorum.value = NONE
+    /\ replicaState[replica].log_pointer <= Len(log)
+    /\ ~IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
+    /\ quorum.id \notin failedParts
     /\ FetchLog(replica)
-    /\ UNCHANGED <<log, nextRecordId, quorum, lastAddedValue, history>>
+    /\ UNCHANGED <<log, nextRecordData, quorum, failedParts, lastAddeddata, history>>
     
-UpdateQuorumReplicas(replica) == 
-    /\ quorum' = [value |-> quorum.value,
-                  replicas |-> quorum.replicas \union {replica}]
+UpdateQuorumReplicas(replica) == quorum' = [data |-> quorum.data,
+                                            replicas |-> quorum.replicas \union {replica},
+                                            id |-> quorum.id]
     
 UpdateQuorum(replica) == 
-    /\ quorum.value # NONE
+    /\ replicaState[replica].log_pointer = Len(log)
+    /\ IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
     /\ replica \notin quorum.replicas
-    /\ quorum.replicas \intersect GetActiveReplicas # {}
-    /\ replicaState[replica].log_pointer = (Len(log) - 1)
+    /\ \/ quorum.replicas = {}
+       \/ quorum.replicas \intersect GetActiveReplicas # {}
     /\ UpdateQuorumReplicas(replica)
     /\ FetchLog(replica)
-    /\ UNCHANGED <<log, nextRecordId, history, lastAddedValue>>
+    /\ UNCHANGED <<log, nextRecordData, history, failedParts, lastAddeddata>>
     
 FailedQuorum(replica) ==
-    /\ quorum.value # NONE
+    /\ replicaState[replica].log_pointer = Len(log)
+    /\ IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
     /\ replica \notin quorum.replicas
-    /\ quorum.replicas \intersect GetActiveReplicas = {}
-    /\ quorum' = NULLQuorum
-    /\ UNCHANGED <<log, replicaState, nextRecordId, lastAddedValue, history>>
+    /\ quorum.replicas # {}
+    /\ GetActiveReplicas \intersect quorum.replicas = {}
+    /\ failedParts' = failedParts \union {quorum.id}
+    /\ quorum' = NullQuorum
+    /\ UNCHANGED <<log, replicaState, nextRecordData, lastAddeddata, history>>
     
 EndQuorum(replica) ==
-    /\ quorum.value # NONE
+    /\ quorum.id # NONE
     /\ replica \in quorum.replicas
     /\ Cardinality(quorum.replicas) >= QuorumCount
-    /\ quorum' = NULLQuorum
-    /\ history' = Append(history, InsertEvents(quorum.value))
-    /\ lastAddedValue' = quorum.value
-    /\ UNCHANGED <<log, replicaState, nextRecordId>>
+    /\ quorum' = NullQuorum
+    /\ history' = Append(history, InsertEvents(quorum.data))
+    /\ lastAddeddata' = quorum.data
+    /\ UNCHANGED <<log, replicaState, nextRecordData, failedParts>>
  
 QuorumInsert == 
-    /\ Len(log) < LogLength
-    /\ quorum.value = NONE
-    /\ quorum' = [replicas |-> {},
-                  value |-> nextRecordId]
-    /\ log' = Append(log, nextRecordId)
-    /\ nextRecordId' = nextRecordId + 1
-    /\ UNCHANGED <<replicaState, lastAddedValue, history>>
+    /\ quorum.id = NONE
+    /\ \E new_record_id \in RecordsId:
+        /\ new_record_id \notin failedParts
+        /\ new_record_id \notin GetCommitedId
+        /\ quorum' = [replicas |-> {},
+                      data |-> nextRecordData,
+                      id |-> new_record_id]
+        /\ log' = Append(log, [data |-> nextRecordData,
+                               id |-> new_record_id])
+    /\ IncData
+    /\ UNCHANGED <<replicaState, lastAddeddata, history, failedParts>>
     
 QuorumReadv1 ==
     /\ Len(log) > 0
     /\ Cardinality(GetSelectFromHistory(history)) < HistoryLength
     /\ \E replica \in Replicas :
-        /\ Cardinality(replicaState[replica].local_parts \ {quorum.value}) > 0
-        /\ LET max_value == Max(replicaState[replica].local_parts \ {quorum.value})
-           IN history' = Append(history, SelectEvents(max_value))
-    /\ UNCHANGED <<log, replicaState, nextRecordId, quorum, lastAddedValue>>
+        /\ Cardinality(replicaState[replica].local_parts \ {quorum.data}) > 0
+        /\ LET max_data == Max(replicaState[replica].local_parts \ {quorum.data})
+           IN history' = Append(history, SelectEvents(max_data))
+    /\ UNCHANGED <<log, replicaState, nextRecordData, quorum, lastAddeddata, failedParts>>
     
 
 QuorumReadv2 == 
     /\ Len(log) > 0
     /\ Cardinality(GetSelectFromHistory(history)) < HistoryLength
     /\ \E replica \in Replicas :
-        /\ lastAddedValue \in replicaState[replica].local_parts
-        /\ LET max_value == Max(replicaState[replica].local_parts \ {quorum.value})
-           IN history' = Append(history, SelectEvents(max_value))
-    /\ UNCHANGED <<log, replicaState, nextRecordId, quorum, lastAddedValue>>
+        /\ lastAddeddata \in replicaState[replica].local_parts
+        /\ LET max_data == Max(replicaState[replica].local_parts \ {quorum.data})
+           IN history' = Append(history, SelectEvents(max_data))
+    /\ UNCHANGED <<log, replicaState, nextRecordData, quorum, lastAddeddata, failedParts>>
     
 LegitimateTermination ==
-    /\ Len(log) = LogLength
+    /\ failedParts \union GetCommitedId = RecordsId
     /\ Cardinality(GetSelectFromHistory(history)) = HistoryLength
     /\ UNCHANGED vars
     
 Next ==
     \/ \E replica \in Replicas:
-        \/ /\ IsActive(replica)
-           /\ \/ ExecuteLog(replica)
-              \/ UpdateQuorum(replica)
-              \/ EndQuorum(replica)
-              \/ BecomeInactive(replica)
-              \/ FailedQuorum(replica)
-        \/ /\ ~IsActive(replica)
-           /\ BecomeActive(replica)
+        \/ IsActive(replica)
+            /\ \/ ExecuteLog(replica)
+               \/ UpdateQuorum(replica)
+               \/ EndQuorum(replica)
+               \/ BecomeInactive(replica)
+               \/ FailedQuorum(replica)
+        \/ ~IsActive(replica)
+            /\ BecomeActive(replica)
     \/ QuorumInsert
     \/ QuorumReadv2
     \/ LegitimateTermination
@@ -205,7 +176,12 @@ Spec == Init /\ [][Next]_vars
 
 
           
-QuorumSelect == [](Len(log) = 0 \/ \A i \in 1..Len(log): Cardinality(GetReplicasWithPart(log[i])) >= QuorumCount \/ quorum.value = log[i])
+QuorumSelect == [](Len(log) = 0 \/ \A i \in 1..Len(log): Cardinality(GetReplicasWithPart(log[i].data)) >= QuorumCount \/ quorum.id = log[i].id \/ log[i].id \in failedParts)
+
+(*
+ * Get Trace with not empty failedParts
+ *)
+NotFailedParts == [](failedParts = {})
 
 Linearizability == \A i, j \in DOMAIN history : /\ i < j
                                                 => history[j].data >= history[i].data

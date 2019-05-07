@@ -27,10 +27,6 @@ vars == <<log, replicaState, nextRecordData, quorum, failedParts, lastAddeddata,
 QuorumState == [data: Nat,
                 replicas: SUBSET Replicas,
                 id: Nat \union NONE]
-                
-HistoryEventInsert == [type: "Write", event_id: Nat, data: Nat]
-HistoryEventSelect == [type: "Read", event_id: Nat, data: Nat]
-HistoryEvents == HistoryEventInsert \union HistoryEventSelect
  
 TypeOK == /\ nextRecordData \in Nat
           /\ quorum \in QuorumState
@@ -42,27 +38,32 @@ GetCommitedId == {record_id \in GetIds(log): record_id \notin GetIds(failedParts
  * Get id for new record
  *)
  
-GetNewRecordId == IF \E new_id \in RecordsId: 
-    /\ new_id \notin GetCommitedId
-    /\ new_id \notin GetIds(failedParts) THEN CHOOSE new_id \in RecordsId: 
-    /\ new_id \notin GetCommitedId
-    /\ new_id \notin GetIds(failedParts)
-    ELSE NONE
+GetNewRecordId == IF \E new_id \in RecordsId:
+                     /\ new_id \notin GetCommitedId
+                     /\ new_id \notin GetIds(failedParts) THEN CHOOSE new_id \in RecordsId: 
+                                                                    /\ new_id \notin GetCommitedId
+                                                                    /\ new_id \notin GetIds(failedParts)
+                                                          ELSE NONE
 
 (*
  * Constructor for history events
  *)
  
-GetHistoryId == Len(history) + 1
+GetTimeStamp == Cardinality(history) + 1
 
-InsertEvents(data) == [type |-> "Write", event_id |-> GetHistoryId, data |-> data]
-SelectEvents(data) == [type |-> "Read", event_id |-> GetHistoryId, data |-> data]
+StartInsertEvent(id) == history' = history \union {[type |-> "StartInsert", timestamp |-> GetTimeStamp, record_id |-> id]}
+EndInsertEvent(id) == history' = history \union {[type |-> "EndInsert", timestamp |-> GetTimeStamp, record_id |-> id]}
+FailedInsertEvent(id) == history' = history \union {[type |-> "FailedInsert", timestamp |-> GetTimeStamp, record_id |-> id]}
+ReadEvent(id) == history' = history \union {[type |-> "Read", timestamp |-> GetTimeStamp, record_id |-> id]}
 
 (*
  * Get smth for check Invarioants
  *)
 
-GetSelectFromHistory(h) == {record \in Range(h): record.type = "Read"}
+GetSelectFromHistory(h) == {record \in h: record.type = "Read"}
+GetStartInsertFromHistory(h) == {record \in h: record.type = "StartInsert"}
+GetFailedInsertFromHistory(h) == {record \in h: record.type = "FailedInsert"}
+GetEndInsertFromHistory(h) == {record \in h: record.type = "EndInsert"}
 
 (*
  * Utilities for work with Quorum
@@ -90,7 +91,7 @@ Init ==
     /\ quorum = NullQuorum
     /\ lastAddeddata = NONE
     /\ failedParts = <<>>
-    /\ history = <<>>
+    /\ history = {}
 
     
 BecomeActive(replica) ==
@@ -123,16 +124,17 @@ FailedQuorum(replica) ==
     /\ ~IsReplicaInQuorum(replica)
     /\ QuorumIsAlive
     /\ UpdateFailedParts(quorum.id, quorum.data)
+    /\ FailedInsertEvent(quorum.id)
     /\ quorum' = NullQuorum
-    /\ UNCHANGED <<log, replicaState, nextRecordData, lastAddeddata, history>>
+    /\ UNCHANGED <<log, replicaState, nextRecordData, lastAddeddata>>
     
 EndQuorum(replica) ==
     /\ quorum.id # NONE
     /\ IsReplicaInQuorum(replica)
     /\ Cardinality(quorum.replicas) >= QuorumCount
-    /\ quorum' = NullQuorum
-    /\ history' = Append(history, InsertEvents(quorum.data))
+    /\ EndInsertEvent(quorum.id)
     /\ lastAddeddata' = quorum.data
+    /\ quorum' = NullQuorum
     /\ UNCHANGED <<log, replicaState, nextRecordData, failedParts>>
  
 QuorumInsert == 
@@ -144,9 +146,11 @@ QuorumInsert ==
                          id |-> new_record_id]
            /\ log' = Append(log, [data |-> nextRecordData,
                                id |-> new_record_id])
+           /\ StartInsertEvent(new_record_id)
     /\ IncData
-    /\ UNCHANGED <<replicaState, lastAddeddata, history, failedParts>>
-    
+    /\ UNCHANGED <<replicaState, lastAddeddata, failedParts>>
+ 
+(*   
 QuorumReadv1 ==
     /\ Len(log) > 0
     /\ Cardinality(GetSelectFromHistory(history)) < HistoryLength
@@ -155,6 +159,7 @@ QuorumReadv1 ==
         /\ LET max_data == Max(replicaState[replica].local_parts \ {quorum.data})
            IN history' = Append(history, SelectEvents(max_data))
     /\ UNCHANGED <<log, replicaState, nextRecordData, quorum, lastAddeddata, failedParts>>
+*)
     
 
 QuorumReadv2 == 
@@ -163,7 +168,7 @@ QuorumReadv2 ==
     /\ \E replica \in Replicas :
         /\ lastAddeddata \in replicaState[replica].local_parts
         /\ LET max_data == Max(replicaState[replica].local_parts \ ({quorum.data} \union GetData(failedParts)))
-           IN history' = Append(history, SelectEvents(max_data))
+           IN ReadEvent(GetIdForData(max_data, log))
     /\ UNCHANGED <<log, replicaState, nextRecordData, quorum, lastAddeddata, failedParts>>
     
 LegitimateTermination ==
@@ -190,15 +195,34 @@ Spec == Init /\ [][Next]_vars
              /\ SF_vars(QuorumReadv2)
 
 
-
           
-QuorumSelect == [](Len(log) = 0 \/ \A i \in 1..Len(log): Cardinality(GetReplicasWithPart(log[i].data)) >= QuorumCount \/ quorum.id = log[i].id \/ log[i].id \in GetIds(failedParts))
+QuorumSelect == [](Len(log) = 0 \/ \A i \in 1..Len(log):
+    Cardinality(GetReplicasWithPart(log[i].data)) >= QuorumCount \/ quorum.id = log[i].id \/ log[i].id \in GetIds(failedParts))
 
 (*
  * Get Trace with not empty failedParts
  *)
 NotFailedParts == [](failedParts = <<>>)
 
+ReadAfterWrite == \A i \in GetSelectFromHistory(history):
+    /\ \E j \in GetStartInsertFromHistory(history):
+        /\ \E k \in GetEndInsertFromHistory(history):
+            /\ i.record_id = j.record_id
+            /\ i.record_id = k.record_id
+            /\  i.timestamp > j.timestamp
+            /\ i.timestamp > k.timestamp
+            
+EndOrFailedAfterStartWrite == \A i \in GetStartInsertFromHistory(history):
+    \/ \E j \in GetEndInsertFromHistory(history):
+        /\ i.record_id = j.record_id
+        /\ i.timestamp < j.timestamp
+    \/ \E k \in GetFailedInsertFromHistory(history):
+        /\ i.record_id = k.record_id
+        /\ i.timestamp < k.timestamp
+        
+VadlidEvents == [](ReadAfterWrite) /\ <>(EndOrFailedAfterStartWrite)
+
+(*
 Linearizability == \A i, j \in DOMAIN history : /\ i < j
                                                 => history[j].data >= history[i].data
                                                 
@@ -212,4 +236,5 @@ ReadAfterWrite == \A i, j \in DOMAIN history : /\ i < j
 Strong == /\ Linearizability
           /\ Monotonic(history)
           /\ ReadAfterWrite
+*)
 ======================================================================

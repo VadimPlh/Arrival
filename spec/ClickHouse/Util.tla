@@ -44,8 +44,10 @@ GetReplicasWithPart(part) == {replica \in Replicas: part \in replicaState[replic
 (*
  * Get data or id's from <<>>
  *)
-GetIds(f) == {f[x].id: x \in DOMAIN f}
-GetData(f) == {f[x].data: x \in DOMAIN f}
+GetIds(f) == {x.id: x \in Range(f)} 
+GetData(f) == {x.data: x \in Range(f)}
+GetRecordLogForData(data, f) == CHOOSE x \in Range(f): x.data = data
+GetIdForData(data, f) == GetRecordLogForData(data,f).id
                     
 (*
  * Get record from log and update local_parts

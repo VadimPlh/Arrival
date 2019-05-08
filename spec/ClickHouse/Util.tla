@@ -66,6 +66,26 @@ RepicaStartInactive(replica) == replicaState' = [replicaState EXCEPT ![replica] 
                                                                                    is_lost |-> @.is_lost,
                                                                                    log_pointer |-> @.log_pointer,
                                                                                    local_parts |-> @.local_parts]]
+                                                                                   
+(*
+ * Add new record to log
+ *)
+UpdateLog(record) == log' = Append(log, record)
+                                                                                   
+(*
+ * TypeOK
+ *)
+LogRecords == [data: Nat, id: RecordsId]
+LogTypeOK == Range(log) \subseteq LogRecords
+
+ReplicaStates == [is_active: BOOLEAN,
+                  is_lost: BOOLEAN,
+                  log_pointer: Nat,
+                  local_parts: SUBSET Nat]
+
+ReplicaStateTypeOK == replicaState \in [Replicas -> ReplicaStates]
+
+RecordDataTypeOK == nextRecordData \in Nat
                                                                               
 (*
  * Init action

@@ -24,13 +24,29 @@ vars == <<log, replicaState, nextRecordData, quorum, failedParts, lastAddeddata,
  * TypeInv for model, because TLA+ is not statically typed
  *)
  
-QuorumState == [data: Nat,
-                replicas: SUBSET Replicas,
-                id: Nat \union NONE]
+ SmthWithNONE(smth) == smth \union {NONE}
  
-TypeOK == /\ nextRecordData \in Nat
-          /\ quorum \in QuorumState
-          /\ lastAddeddata \in Nat
+QuorumStates == [data: SmthWithNONE(Nat),
+                replicas: SUBSET Replicas,
+                id: SmthWithNONE(RecordsId)]
+QuorumTypeOK == quorum \in QuorumStates
+
+FailedParts == [id: RecordsId, data: Nat]
+FailedPartsTypeOK == Range(failedParts)  \subseteq FailedParts
+
+LastAddedDataTypeOK == lastAddeddata \in SmthWithNONE(Nat)
+
+HistoryTypes == {"StartInsert", "EndInsert", "FailedInsert", "Read"}
+HistoryEvents == [type: HistoryTypes, timestamp: Nat, record_id: RecordsId]
+HistoryTypeOK == history \subseteq HistoryEvents
+ 
+TypeOK == /\ LogTypeOK
+          /\ ReplicaStateTypeOK
+          /\ RecordDataTypeOK
+          /\ QuorumTypeOK
+          /\ FailedPartsTypeOK
+          /\ LastAddedDataTypeOK
+          /\ HistoryTypeOK
  
 GetCommitedId == {record_id \in GetIds(log): record_id \notin GetIds(failedParts) /\ record_id # quorum.id}
 
@@ -144,8 +160,7 @@ QuorumInsert ==
            /\ quorum' = [replicas |-> {},
                          data |-> nextRecordData,
                          id |-> new_record_id]
-           /\ log' = Append(log, [data |-> nextRecordData,
-                               id |-> new_record_id])
+           /\ UpdateLog([data |-> nextRecordData, id |-> new_record_id])
            /\ StartInsertEvent(new_record_id)
     /\ IncData
     /\ UNCHANGED <<replicaState, lastAddeddata, failedParts>>

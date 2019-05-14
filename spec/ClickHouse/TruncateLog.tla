@@ -80,7 +80,7 @@ LegitimateTermination ==
     /\ GetIds(log) = RecordsId
     /\ UNCHANGED vars
 
-Next ==
+Next ==    
     \/ ReplicaBecomeInactive
     \/ ReplicaBecomeActive
     \/ ClearOldLog

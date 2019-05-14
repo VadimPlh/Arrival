@@ -201,7 +201,7 @@ LegitimateTermination ==
     /\ Cardinality(GetSelectFromHistory(history)) = HistoryLength
     /\ UNCHANGED vars
     
-ClientAction == 
+ReplicaAction == 
     \E replica \in Replicas:
      \/ IsActive(replica)
          /\ \/ ExecuteLog(replica)
@@ -212,7 +212,7 @@ ClientAction ==
      \/ ~IsActive(replica)
          /\ BecomeActive(replica)
 
-ReplicaAction ==
+ClientAction ==
     \/ QuorumInsert
     \/ QuorumReadv2
     

@@ -1,101 +1,66 @@
 ------------------------------------------MODULE TruncateLog-------------------------------------------
 
-EXTENDS TLC, Sequences, Integers, FiniteSets
-
-CONSTANTS
-    Replicas,
-    LenLog
-
-NONE == "NONE"
-NULL == 0
-
-ASSUME
-    /\ NONE \notin Replicas
+EXTENDS TLC, Sequences, Integers, FiniteSets, Util
 
 VARIABLES
-    \* Log in zookeeper.
-    logHead,
-
-    \* State replica. Active or not and e.t.c
-    replicaState,
-
     \* Deleted prefix in log
     deletedPrefix
 
-vars == <<logHead, replicaState, deletedPrefix>>
-
-IsActive(replica) == replicaState[replica].is_active
-
-IsLost(replica) == replicaState[replica].is_lost
-
-Min(S) == IF S # {} THEN CHOOSE x \in S:
-                      /\ \A y \in S \ {x}:
-                          y >= x
-          ELSE 0
-
-Max(S) == CHOOSE x \in S:
-            /\ \A y \in S \ {x}:
-                y <= x
-
-GetActiveReplicas == {replica \in Replicas: IsActive(replica)}
+vars == <<log, replicaState, nextRecordData, deletedPrefix>>
 
 GetLogPointers == {replicaState[x].log_pointer: x \in GetActiveReplicas}
 
+GetNewRecordId == IF \E new_id \in RecordsId:
+                     /\ new_id \notin GetIds(log) THEN CHOOSE new_id \in RecordsId: new_id \notin GetIds(log)
+                                                    ELSE NONE
 
 Init ==
-    /\ logHead = NULL
-    /\ replicaState = [replica \in Replicas |-> [is_active |-> TRUE,
-                                                 is_lost |-> FALSE,
-                                                 log_pointer |-> NULL]]
-    /\ deletedPrefix = NULL
+    /\ InitLog
+    /\ InitReplicaState
+    /\ InitNextRecordData
+    /\ deletedPrefix = 0
 
 ReplicaBecomeInactive ==
     /\ \E replica \in Replicas :
       /\ IsActive(replica)
       /\ ~IsLost(replica)
-      /\ replicaState' = [replicaState EXCEPT ![replica] = [
-                          is_active |-> FALSE,
-                          is_lost |-> FALSE,
-                          log_pointer |-> @.log_pointer]]
-    /\ UNCHANGED <<logHead, deletedPrefix>>
+      /\ RepicaStartInactive(replica)
+    /\ UNCHANGED <<log, nextRecordData, deletedPrefix>>
 
 ReplicaBecomeActive ==
     /\ \E replica \in Replicas :
       /\ ~IsActive(replica)
       /\ ~IsLost(replica)
-      /\ replicaState' = [replicaState EXCEPT ![replica] = [
-                          is_active |-> TRUE,
-                          is_lost |-> FALSE,
-                          log_pointer |-> @.log_pointer]]
-    /\ UNCHANGED <<logHead, deletedPrefix>>
+      /\ RepicaStartActive(replica)
+    /\ UNCHANGED <<log, nextRecordData, deletedPrefix>>
 
 ExecuteLog ==
     /\ \E replica \in Replicas :
-        /\ replicaState[replica].log_pointer < logHead
+        /\ replicaState[replica].log_pointer <= Len(log)
         /\ IsActive(replica)
         /\ ~IsLost(replica)
-        /\ replicaState' = [replicaState EXCEPT ![replica] = [
-                            is_active |-> TRUE,
-                            is_lost |-> FALSE,
-                            log_pointer |-> @.log_pointer + 1]]
-    /\ UNCHANGED <<logHead, deletedPrefix>>
+        /\ FetchLog(replica)
+    /\ UNCHANGED <<log, nextRecordData, deletedPrefix>>
 
 Insert ==
-    /\ logHead < LenLog
     /\ \E replica \in Replicas :
         /\ IsActive(replica)
         /\ ~IsLost(replica)
-    /\ logHead' = logHead + 1
+    /\ LET new_record_id == GetNewRecordId
+       IN  /\ new_record_id # NONE  
+           /\ UpdateLog([data |-> nextRecordData, id |-> new_record_id])
+    /\ IncData
     /\ UNCHANGED <<replicaState, deletedPrefix>>
 
 
 ClearOldLog ==
-    /\ logHead > 0
+    /\ Len(log) > 0
     /\ deletedPrefix' = Max({Min(GetLogPointers), deletedPrefix})
     /\ replicaState' = [replica \in Replicas |-> [is_active |-> replicaState[replica].is_active,
                                                   is_lost |-> (replicaState[replica].log_pointer < deletedPrefix'),
-                                                  log_pointer |-> replicaState[replica].log_pointer]]
-    /\ UNCHANGED <<logHead>>
+                                                  log_pointer |-> replicaState[replica].log_pointer,
+                                                  local_parts |-> replicaState[replica].local_parts]]
+    /\ UNCHANGED <<log, nextRecordData>>
 
 
 CloneReplica ==
@@ -107,8 +72,13 @@ CloneReplica ==
         /\ replicaState' = [replicaState EXCEPT ![recovering_replica] = [
                             is_active |-> TRUE,
                             is_lost |-> FALSE,
-                            log_pointer |-> replicaState[active_replica].log_pointer]]
-    /\ UNCHANGED <<logHead, deletedPrefix>>
+                            log_pointer |-> replicaState[active_replica].log_pointer,
+                            local_parts |-> replicaState[active_replica].local_parts]]
+    /\ UNCHANGED <<log, nextRecordData, deletedPrefix>>
+    
+LegitimateTermination ==
+    /\ GetIds(log) = RecordsId
+    /\ UNCHANGED vars
 
 Next ==
     \/ ReplicaBecomeInactive
@@ -117,6 +87,7 @@ Next ==
     \/ CloneReplica
     \/ Insert
     \/ ExecuteLog
+    \/ LegitimateTermination
 
 Spec == Init /\ [][Next]_vars
              /\ SF_vars(Insert)
@@ -125,5 +96,5 @@ Spec == Init /\ [][Next]_vars
              /\ SF_vars(ClearOldLog)
 
 IsLogCleared == <>(deletedPrefix > 0)
-HasNotLostReplica == [](\A replica \in Replicas : ~IsLost(replica))
+
 =======================================================================================================

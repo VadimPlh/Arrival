@@ -27,12 +27,19 @@ Max(S) == IF S # {} THEN CHOOSE x \in S:
                       /\ \A y \in S \ {x}:
                           y <= x
           ELSE 0
+          
+Min(S) == IF S # {} THEN CHOOSE x \in S:
+                      /\ \A y \in S \ {x}:
+                          y >= x
+          ELSE 0
 
 (*
- * Util for work with is_active status
+ * Util for work with is_active status and is_lost
  *)
  
 IsActive(replica) == replicaState[replica].is_active
+IsLost(replica) == replicaState[replica].is_lost
+
 GetActiveReplicas == {replica \in Replicas: IsActive(replica)}
           
 (*
@@ -71,6 +78,8 @@ RepicaStartInactive(replica) == replicaState' = [replicaState EXCEPT ![replica] 
  * Add new record to log
  *)
 UpdateLog(record) == log' = Append(log, record)
+
+IncData == nextRecordData' = nextRecordData + 1
                                                                                    
 (*
  * TypeOK

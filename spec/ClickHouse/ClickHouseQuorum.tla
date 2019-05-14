@@ -105,9 +105,7 @@ UpdateQuorumReplicas(replica) == quorum' = [data |-> quorum.data,
 QuorumIsAlive == /\ quorum.replicas # {}
                  /\ GetActiveReplicas \intersect quorum.replicas = {}
                  
-UpdateFailedParts(id, value) == failedParts' = Append(failedParts, [id |-> id, data |-> value])
-
-IncData == nextRecordData' = nextRecordData + 1         
+UpdateFailedParts(id, value) == failedParts' = Append(failedParts, [id |-> id, data |-> value])         
 
 NullQuorum == [data |-> NONE, replicas |-> {}, id |-> NONE]
 

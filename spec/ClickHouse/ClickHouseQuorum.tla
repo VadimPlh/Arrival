@@ -24,7 +24,7 @@ vars == <<log, replicaState, nextRecordData, quorum, failedParts, lastAddeddata,
  * TypeInv for model, because TLA+ is not statically typed
  *)
  
- SmthWithNONE(smth) == smth \union {NONE}
+SmthWithNONE(smth) == smth \cup {NONE}
  
 QuorumStates == [data: SmthWithNONE(Nat),
                 replicas: SUBSET Replicas,
@@ -65,12 +65,23 @@ GetNewRecordId == IF \E new_id \in RecordsId:
  * Constructor for history events
  *)
  
-GetTimeStamp == Cardinality(history) + 1
+GetNumber(h) == Cardinality(h) + 1
 
-StartInsertEvent(id) == history' = history \union {[type |-> "StartInsert", timestamp |-> GetTimeStamp, record_id |-> id]}
-EndInsertEvent(id) == history' = history \union {[type |-> "EndInsert", timestamp |-> GetTimeStamp, record_id |-> id]}
-FailedInsertEvent(id) == history' = history \union {[type |-> "FailedInsert", timestamp |-> GetTimeStamp, record_id |-> id]}
-ReadEvent(id) == history' = history \union {[type |-> "Read", timestamp |-> GetTimeStamp, record_id |-> id]}
+StartInsertEvent(id) == history' = history \cup {[type |-> "StartInsert",
+                                                  timestamp |-> GetNumber(history),
+                                                  record_id |-> id]}
+                                                  
+EndInsertEvent(id) == history' = history \cup {[type |-> "EndInsert",
+                                                timestamp |-> GetNumber(history),
+                                                record_id |-> id]}
+                                                
+FailedInsertEvent(id) == history' = history \cup {[type |-> "FailedInsert",
+                                                   timestamp |-> GetNumber(history),
+                                                   record_id |-> id]}
+                                                   
+ReadEvent(id) == history' = history \cup {[type |-> "Read",
+                                           timestamp |-> GetNumber(history),
+                                           record_id |-> id]}
 
 (*
  * Get smth for check Invarioants
@@ -88,7 +99,7 @@ GetEndInsertFromHistory(h) == {record \in h: record.type = "EndInsert"}
 IsCurrentQuorum(id) == id = quorum.id
 IsReplicaInQuorum(replica) == replica \in quorum.replicas
 UpdateQuorumReplicas(replica) == quorum' = [data |-> quorum.data,
-                                            replicas |-> quorum.replicas \union {replica},
+                                            replicas |-> quorum.replicas \cup {replica},
                                             id |-> quorum.id]
                                             
 QuorumIsAlive == /\ quorum.replicas # {}
@@ -127,7 +138,8 @@ ExecuteLog(replica) ==
     
 UpdateQuorum(replica) == 
     /\ replicaState[replica].log_pointer = Len(log)
-    /\ IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
+    /\ LET quorum_id == log[replicaState[replica].log_pointer].id
+       IN IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
     /\ ~IsReplicaInQuorum(replica)
     /\ ~QuorumIsAlive
     /\ UpdateQuorumReplicas(replica)
@@ -182,27 +194,33 @@ QuorumReadv2 ==
     /\ Cardinality(GetSelectFromHistory(history)) < HistoryLength
     /\ \E replica \in Replicas :
         /\ lastAddeddata \in replicaState[replica].local_parts
-        /\ LET max_data == Max(replicaState[replica].local_parts \ ({quorum.data} \union GetData(failedParts)))
+        /\ LET max_data == Max(replicaState[replica].local_parts \ ({quorum.data} \cup GetData(failedParts)))
            IN ReadEvent(GetIdForData(max_data, log))
     /\ UNCHANGED <<log, replicaState, nextRecordData, quorum, lastAddeddata, failedParts>>
     
 LegitimateTermination ==
-    /\ GetIds(failedParts) \union GetCommitedId = RecordsId
+    /\ GetIds(failedParts) \cup GetCommitedId = RecordsId
     /\ Cardinality(GetSelectFromHistory(history)) = HistoryLength
     /\ UNCHANGED vars
     
-Next ==
-    \/ \E replica \in Replicas:
-        \/ IsActive(replica)
-            /\ \/ ExecuteLog(replica)
-               \/ UpdateQuorum(replica)
-               \/ EndQuorum(replica)
-               \/ BecomeInactive(replica)
-               \/ FailedQuorum(replica)
-        \/ ~IsActive(replica)
-            /\ BecomeActive(replica)
+ClientAction == 
+    \E replica \in Replicas:
+     \/ IsActive(replica)
+         /\ \/ ExecuteLog(replica)
+            \/ UpdateQuorum(replica)
+            \/ EndQuorum(replica)
+            \/ BecomeInactive(replica)
+            \/ FailedQuorum(replica)
+     \/ ~IsActive(replica)
+         /\ BecomeActive(replica)
+
+ReplicaAction ==
     \/ QuorumInsert
     \/ QuorumReadv2
+    
+Next ==
+    \/ ClientAction
+    \/ ReplicaAction
     \/ LegitimateTermination
 
 Spec == Init /\ [][Next]_vars
@@ -235,7 +253,7 @@ EndOrFailedAfterStartWrite == \A i \in GetStartInsertFromHistory(history):
         /\ i.record_id = k.record_id
         /\ i.timestamp < k.timestamp
         
-VadlidEvents == [](ReadAfterWrite) /\ <>(EndOrFailedAfterStartWrite)
+ValidEvents == [](ReadAfterWrite) /\ <>(EndOrFailedAfterStartWrite)
 
 (*
 Linearizability == \A i, j \in DOMAIN history : /\ i < j

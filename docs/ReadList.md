@@ -22,3 +22,5 @@
 * [Fairness](https://groups.google.com/forum/#!topic/tlaplus/FqGPF_2-ljE)
 * [metadata blog](http://muratbuffalo.blogspot.com/search/label/tla)
 * [Teaching Rigorous Distributed Systems With Efficient Model Checking](https://ellismichael.com/papers/dslabs-eurosys19.pdf)
+* [TMP](http://tla.msr-inria.inria.fr/tlaps/content/Home.html)
+* [Страница с расширенными настройками TLC](https://tla.msr-inria.inria.fr/tlatoolbox/doc/model/advanced-page.html)

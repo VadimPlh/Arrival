@@ -24,8 +24,6 @@ vars == <<log, replicaState, nextRecordData, quorum, failedParts, lastAddeddata,
  * TypeInv for model, because TLA+ is not statically typed
  *)
  
-SmthWithNONE(smth) == smth \cup {NONE}
- 
 QuorumStates == [data: SmthWithNONE(Nat),
                 replicas: SUBSET Replicas,
                 id: SmthWithNONE(RecordsId)]
@@ -54,12 +52,9 @@ GetCommitedId == {record_id \in GetIds(log): record_id \notin GetIds(failedParts
  * Get id for new record
  *)
  
-GetNewRecordId == IF \E new_id \in RecordsId:
-                     /\ new_id \notin GetCommitedId
-                     /\ new_id \notin GetIds(failedParts) THEN CHOOSE new_id \in RecordsId: 
-                                                                    /\ new_id \notin GetCommitedId
-                                                                    /\ new_id \notin GetIds(failedParts)
-                                                          ELSE NONE
+GetNewRecordId == CHOOSE new_id \in SmthWithNONE(RecordsId): 
+                    /\ new_id \notin GetCommitedId
+                    /\ new_id \notin GetIds(failedParts)
 
 (*
  * Constructor for history events

@@ -32,6 +32,8 @@ Min(S) == IF S # {} THEN CHOOSE x \in S:
                       /\ \A y \in S \ {x}:
                           y >= x
           ELSE 0
+          
+SmthWithNONE(smth) == smth \cup {NONE}
 
 (*
  * Util for work with is_active status and is_lost

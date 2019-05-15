@@ -8,11 +8,20 @@ VARIABLES
 
 vars == <<log, replicaState, nextRecordData, deletedPrefix>>
 
+(*
+ * TypeOK
+ *)
+
+DeletedPrefixTypeOK == deletedPrefix \in Nat
+ 
+TypeOK == /\ LogTypeOK
+          /\ ReplicaStateTypeOK
+          /\ RecordDataTypeOK
+          /\ DeletedPrefixTypeOK
+
 GetLogPointers == {replicaState[x].log_pointer: x \in GetActiveReplicas}
 
-GetNewRecordId == IF \E new_id \in RecordsId:
-                     /\ new_id \notin GetIds(log) THEN CHOOSE new_id \in RecordsId: new_id \notin GetIds(log)
-                                                    ELSE NONE
+GetNewRecordId == CHOOSE new_id \in SmthWithNONE(RecordsId): new_id \notin GetIds(log)
 
 Init ==
     /\ InitLog

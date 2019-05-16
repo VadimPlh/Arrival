@@ -125,8 +125,11 @@ BecomeInactive(replica) ==
 ExecuteLog(replica) == 
     /\ CanExecuteLog(replica)
     /\ LET record_id == log[replicaState[replica].log_pointer].id
-       IN /\ ~IsCurrentQuorum(record_id)
-          /\ record_id \notin GetIds(failedParts)
+       IN \/ /\ ~IsCurrentQuorum(record_id)
+             /\ record_id \notin GetIds(failedParts)
+          \/ /\ IsCurrentQuorum(record_id)
+             /\ replica \in quorum.replicas
+             /\ replicaState[replica].log_pointer = Len(log)
     /\ FetchLog(replica)
     /\ UNCHANGED <<log, nextRecordData, quorum, failedParts, lastAddeddata, history>>
     
@@ -177,24 +180,23 @@ QuorumInsert ==
            /\ StartInsertEvent(new_record_id)
     /\ IncData
     /\ UNCHANGED <<lastAddeddata, failedParts>>
- 
-(*   
-QuorumReadv1 ==
-    /\ Len(log) > 0
-    /\ Cardinality(GetSelectFromHistory(history)) < HistoryLength
-    /\ \E replica \in Replicas :
-        /\ Cardinality(replicaState[replica].local_parts \ {quorum.data}) > 0
-        /\ LET max_data == Max(replicaState[replica].local_parts \ {quorum.data})
-           IN history' = Append(history, SelectEvents(max_data))
-    /\ UNCHANGED <<log, replicaState, nextRecordData, quorum, lastAddeddata, failedParts>>
-*)
     
-
-QuorumReadv2 == 
+QuorumReadWithoutLin ==
     /\ Len(log) > 0
     /\ Cardinality(GetSelectFromHistory(history)) < HistoryLength
     /\ \E replica \in Replicas :
-        /\ Cardinality(GetCommitedId) <= Cardinality(replicaState[replica].local_parts)
+        /\ IsActive(replica)
+        /\ LET max_data == Max(replicaState[replica].local_parts \ ({quorum.data} \cup GetData(failedParts)))
+           IN /\ max_data # NONE
+              /\ ReadEvent(GetIdForData(max_data, log))
+    /\ UNCHANGED <<log, replicaState, nextRecordData, quorum, lastAddeddata, failedParts>>
+    
+QuorumReadLin == 
+    /\ Len(log) > 0
+    /\ Cardinality(GetSelectFromHistory(history)) < HistoryLength
+    /\ \E replica \in Replicas :
+        /\ IsActive(replica)
+        /\ Cardinality(GetCommitedId) = Cardinality(replicaState[replica].local_parts \ ({quorum.data} \cup GetData(failedParts)))
         /\ LET max_data == Max(replicaState[replica].local_parts \ ({quorum.data} \cup GetData(failedParts)))
            IN /\ max_data # NONE
               /\ ReadEvent(GetIdForData(max_data, log))
@@ -218,7 +220,7 @@ ReplicaAction ==
 
 ClientAction ==
     \/ QuorumInsert
-    \/ QuorumReadv2
+    \/ QuorumReadWithoutLin
     
 Next ==
     \/ ClientAction
@@ -227,7 +229,7 @@ Next ==
 
 Spec == Init /\ [][Next]_vars
              /\ SF_vars(QuorumInsert)
-             /\ SF_vars(QuorumReadv2)
+             (*/\ SF_vars(QuorumReadWithoutLin)*)
 
 
           
@@ -244,7 +246,7 @@ ReadAfterWrite == \A i \in GetSelectFromHistory(history):
         /\ \E k \in GetEndInsertFromHistory(history):
             /\ i.record_id = j.record_id
             /\ i.record_id = k.record_id
-            /\  i.timestamp > j.timestamp
+            /\ i.timestamp > j.timestamp
             /\ i.timestamp > k.timestamp
             
 EndOrFailedAfterStartWrite == \A i \in GetStartInsertFromHistory(history):
@@ -255,6 +257,14 @@ EndOrFailedAfterStartWrite == \A i \in GetStartInsertFromHistory(history):
         /\ i.record_id = k.record_id
         /\ i.timestamp < k.timestamp
         
-ValidEvents == [](ReadAfterWrite) /\ <>(EndOrFailedAfterStartWrite)
+MonotonicRead == \A i, j \in GetSelectFromHistory(history):
+    /\ i.record_id # j.record_id
+    /\ i.timestamp < j.timestamp
+    => \E k, l \in GetEndInsertFromHistory(history):
+       /\ k.record_id = i.record_id
+       /\ l.record_id = j.record_id
+       /\ k.timestamp < l.timestamp
+        
+ValidEvents == [](ReadAfterWrite) /\ <>(EndOrFailedAfterStartWrite) /\ [](MonotonicRead)
 
 ======================================================================

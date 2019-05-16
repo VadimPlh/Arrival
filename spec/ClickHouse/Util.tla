@@ -26,7 +26,7 @@ Range(f) == {f[x] : x \in DOMAIN f}
 Max(S) == IF S # {} THEN CHOOSE x \in S:
                       /\ \A y \in S \ {x}:
                           y <= x
-          ELSE 0
+          ELSE NONE
           
 Min(S) == IF S # {} THEN CHOOSE x \in S:
                       /\ \A y \in S \ {x}:
@@ -80,6 +80,8 @@ RepicaStartInactive(replica) == replicaState' = [replicaState EXCEPT ![replica] 
  * Add new record to log
  *)
 UpdateLog(record) == log' = Append(log, record)
+
+CanExecuteLog(replica) == replicaState[replica].log_pointer <= Len(log)
 
 IncData == nextRecordData' = nextRecordData + 1
                                                                                    

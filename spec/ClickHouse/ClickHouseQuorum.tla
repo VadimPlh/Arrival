@@ -97,8 +97,8 @@ UpdateQuorumReplicas(replica) == quorum' = [data |-> quorum.data,
                                             replicas |-> quorum.replicas \cup {replica},
                                             id |-> quorum.id]
                                             
-QuorumIsAlive == /\ quorum.replicas # {}
-                 /\ GetActiveReplicas \intersect quorum.replicas = {}
+QuorumIsUnalive == /\ quorum.replicas # {}
+                   /\ GetActiveReplicas \cap quorum.replicas = {}
                  
 UpdateFailedParts(id, value) == failedParts' = Append(failedParts, [id |-> id, data |-> value])         
 
@@ -123,27 +123,29 @@ BecomeInactive(replica) ==
     /\ UNCHANGED <<log, nextRecordData, quorum, failedParts,lastAddeddata, history>>
 
 ExecuteLog(replica) == 
-    /\ replicaState[replica].log_pointer <= Len(log)
-    /\ ~IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
-    /\ quorum.id \notin GetIds(failedParts)
+    /\ CanExecuteLog(replica)
+    /\ LET record_id == log[replicaState[replica].log_pointer].id
+       IN /\ ~IsCurrentQuorum(record_id)
+          /\ record_id \notin GetIds(failedParts)
     /\ FetchLog(replica)
     /\ UNCHANGED <<log, nextRecordData, quorum, failedParts, lastAddeddata, history>>
     
 UpdateQuorum(replica) == 
-    /\ replicaState[replica].log_pointer = Len(log)
-    /\ LET quorum_id == log[replicaState[replica].log_pointer].id
-       IN IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
+    /\ CanExecuteLog(replica)
+    /\ LET record_id == log[replicaState[replica].log_pointer].id
+       IN IsCurrentQuorum(record_id)
     /\ ~IsReplicaInQuorum(replica)
-    /\ ~QuorumIsAlive
+    /\ ~QuorumIsUnalive
     /\ UpdateQuorumReplicas(replica)
     /\ FetchLog(replica)
     /\ UNCHANGED <<log, nextRecordData, history, failedParts, lastAddeddata>>
     
 FailedQuorum(replica) ==
-    /\ replicaState[replica].log_pointer = Len(log)
-    /\ IsCurrentQuorum(log[replicaState[replica].log_pointer].id)
+    /\ CanExecuteLog(replica)
+    /\ LET record_id == log[replicaState[replica].log_pointer].id
+       IN IsCurrentQuorum(record_id)
     /\ ~IsReplicaInQuorum(replica)
-    /\ QuorumIsAlive
+    /\ QuorumIsUnalive
     /\ UpdateFailedParts(quorum.id, quorum.data)
     /\ FailedInsertEvent(quorum.id)
     /\ quorum' = NullQuorum
@@ -162,13 +164,19 @@ QuorumInsert ==
     /\ quorum.id = NONE
     /\ LET new_record_id == GetNewRecordId
        IN  /\ new_record_id # NONE
-           /\ quorum' = [replicas |-> {},
-                         data |-> nextRecordData,
-                         id |-> new_record_id]
+           /\ \E replica \in Replicas:
+              /\ IsActive(replica)
+              /\ quorum' = [replicas |-> {replica},
+                            data |-> nextRecordData,
+                            id |-> new_record_id]
+              /\ replicaState' = [replicaState EXCEPT ![replica] = [is_active |-> @.is_active,
+                                                        is_lost |-> FALSE,
+                                                        log_pointer |-> @.log_pointer,
+                                                        local_parts |-> @.local_parts \union {nextRecordData}]]
            /\ UpdateLog([data |-> nextRecordData, id |-> new_record_id])
            /\ StartInsertEvent(new_record_id)
     /\ IncData
-    /\ UNCHANGED <<replicaState, lastAddeddata, failedParts>>
+    /\ UNCHANGED <<lastAddeddata, failedParts>>
  
 (*   
 QuorumReadv1 ==
@@ -186,9 +194,10 @@ QuorumReadv2 ==
     /\ Len(log) > 0
     /\ Cardinality(GetSelectFromHistory(history)) < HistoryLength
     /\ \E replica \in Replicas :
-        /\ lastAddeddata \in replicaState[replica].local_parts
+        /\ Cardinality(GetCommitedId) <= Cardinality(replicaState[replica].local_parts)
         /\ LET max_data == Max(replicaState[replica].local_parts \ ({quorum.data} \cup GetData(failedParts)))
-           IN ReadEvent(GetIdForData(max_data, log))
+           IN /\ max_data # NONE
+              /\ ReadEvent(GetIdForData(max_data, log))
     /\ UNCHANGED <<log, replicaState, nextRecordData, quorum, lastAddeddata, failedParts>>
     
 LegitimateTermination ==
@@ -248,19 +257,4 @@ EndOrFailedAfterStartWrite == \A i \in GetStartInsertFromHistory(history):
         
 ValidEvents == [](ReadAfterWrite) /\ <>(EndOrFailedAfterStartWrite)
 
-(*
-Linearizability == \A i, j \in DOMAIN history : /\ i < j
-                                                => history[j].data >= history[i].data
-                                                
-Monotonic(h) == \A i, j \in DOMAIN h : i <= j => h[i].data <= h[j].data
-
-ReadAfterWrite == \A i, j \in DOMAIN history : /\ i < j
-                                               /\ history[i].type = "Write"
-                                               /\ history[j].type = "Read"
-                                               => history[j].data >= history[i].data
-                                               
-Strong == /\ Linearizability
-          /\ Monotonic(history)
-          /\ ReadAfterWrite
-*)
 ======================================================================

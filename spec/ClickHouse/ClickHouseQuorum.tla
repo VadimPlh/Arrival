@@ -220,7 +220,7 @@ ReplicaAction ==
 
 ClientAction ==
     \/ QuorumInsert
-    \/ QuorumReadWithoutLin
+    \/ QuorumReadLin
     
 Next ==
     \/ ClientAction

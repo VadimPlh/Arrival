@@ -12,6 +12,20 @@
 *
 
 # Мои мысли
+## ПРоверка на линеаризуемость для КХ
+* В КХ нет sync между нодами в ЗК, поэтому мы можем получить историю, которая не удовлетворяет seq-cons
+* Получим историю, которую чекер считает не линеариз. и проверим ее через спеку о линеаризуемости
+* История будет выглядеть так:
+    H = <<type -> Insert, value x, proc -> A;
+          type -> OK, proc -> A;
+          type -> Insert, value y, proc -> A;
+          type -> Read,  proc -> B;
+          type -> OK, value x, proc -> B;
+          type -> OK, proc -> A;
+          type -> Read, proc -> B;
+          type -> OK, value y, proc -> B;
+          type -> Read, proc -> B;
+          type -> OK, value x, proc -> B;
 
 # Заметки о статьях
 [Teaching Rigorous Distributed Systems With Efficient Model Checking](https://ellismichael.com/papers/dslabs-eurosys19.pdf)

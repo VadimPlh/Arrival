@@ -175,7 +175,7 @@ QuorumInsert ==
               /\ replicaState' = [replicaState EXCEPT ![replica] = [is_active |-> @.is_active,
                                                         is_lost |-> FALSE,
                                                         log_pointer |-> @.log_pointer,
-                                                        local_parts |-> @.local_parts \union {nextRecordData}]]
+                                                        local_parts |-> @.local_parts \cup {nextRecordData}]]
            /\ UpdateLog([data |-> nextRecordData, id |-> new_record_id])
            /\ StartInsertEvent(new_record_id)
     /\ IncData

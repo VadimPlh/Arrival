@@ -36,6 +36,7 @@ InsertEvent(data, id) == [type |-> "Insert",
 
 MergeEvent(old_records, id) == [type |-> "Merge",
                                 old_records |-> old_records,
+                                data |-> nextRecordData,
                                 id |-> id]
 
 (*
@@ -50,7 +51,7 @@ ExpiredLeader(old_leader) ==
                         is_active |-> TRUE,
                         is_lost |-> FALSE,
                         log_pointer |-> @.log_pointer,
-                        local_parts |-> @.local_log]]
+                        local_parts |-> @.local_parts]]
     /\ leader' = NONE
     /\ UNCHANGED <<log, nextRecordData>>
 
@@ -59,33 +60,55 @@ BecomeLeader(new_leader) ==
      /\ leader' = new_leader
      /\ UNCHANGED <<log, replicaState, nextRecordData>>
 
-LeaderCreateMerge(leader) ==
-    /\ Len(log) < LogSize
-    /\ replica = leader
-    /\ log' = Append(log, nextRecordId)
-    /\ nextRecordId' = nextRecordId + 1
-    /\ UNCHANGED <<replicaState, leader>>
+LeaderCreateMerge(curr_leader) ==
+    /\ curr_leader = leader
+    /\ LET new_record_id == GetNewRecordId
+       IN  /\ new_record_id # NONE
+           /\ \E record1, record2 \in replicaState[curr_leader].local_parts:
+              /\ record1 # record2
+              /\ replicaState' = [replicaState EXCEPT ![curr_leader] = [is_active |-> @.is_active,
+                                                        is_lost |-> FALSE,
+                                                        log_pointer |-> @.log_pointer,
+                                                        local_parts |-> (@.local_parts \cup {nextRecordData}) \ {record1, record2}]]
+              /\ UpdateLog(MergeEvent({record1, record2}, new_record_id))
+    /\ IncData
+    /\ UNCHANGED <<leader>>
 
-ExecuteLog(replica) ==
+ExecuteInsert(replica) ==
     /\ CanExecuteLog(replica)
+    /\ log[replicaState[replica].log_pointer].type = "Insert"
     /\ FetchLog(replica)
-    /\ UNCHANGED <<log, leader>>
+    /\ UNCHANGED <<log, nextRecordData, leader>>
     
-QuorumInsert == 
+ExecuteMerge(replica) ==
+    /\ CanExecuteLog(replica)
+    /\ log[replicaState[replica].log_pointer].type = "Merge"
+    /\ replicaState' = [replicaState EXCEPT ![replica] = [is_active |-> @.is_active,
+                                                              is_lost |-> FALSE,
+                                                              log_pointer |-> @.log_pointer + 1,
+                                                              local_parts |-> (@.local_parts \cup {log[@.log_pointer].data}) \ log[@.log_pointer].old_records]]
+    /\ UNCHANGED <<log, nextRecordData, leader>>
+    
+Insert == 
     /\ LET new_record_id == GetNewRecordId
        IN  /\ new_record_id # NONE
            /\ \E replica \in Replicas:
               /\ replicaState' = [replicaState EXCEPT ![replica] = [is_active |-> @.is_active,
                                                         is_lost |-> FALSE,
                                                         log_pointer |-> @.log_pointer,
-                                                        local_parts |-> @.local_parts \union {nextRecordData}]]
+                                                        local_parts |-> @.local_parts \cup {nextRecordData}]]
            /\ UpdateLog(InsertEvent(nextRecordData, new_record_id))
     /\ IncData
     /\ UNCHANGED <<leader>>
+    
+LegitimateTermination ==
+    /\ GetIds(log) = RecordsId
+    /\ UNCHANGED vars
 
 ReplicaAction ==
     \E replica \in Replicas:
-        \/ ExecuteLog(replica)
+        \/ ExecuteInsert(replica)
+        \/ ExecuteMerge(replica)
         \/ BecomeLeader(replica)
         
 LeaderAction ==
@@ -95,6 +118,16 @@ LeaderAction ==
            \/ LeaderCreateMerge(replica)
 
 ClientAction ==
-    /\ QuorumInsert
+    /\ Insert
+    
+Next ==
+    \/ ClientAction
+    \/ LeaderAction
+    \/ ReplicaAction
+    \/ LegitimateTermination
 
+Spec == Init /\ [][Next]_vars
+             /\ SF_vars(LeaderAction)
+
+DoMerge == [](\A x \in Range(log): x.type = "Insert")
 ==========================================================================

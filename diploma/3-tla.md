@@ -7,7 +7,7 @@
 Полезно писать юнит-тесты для ваших операторов.
 Пример:
 * [1](https://github.com/pron/amazon-snapshot-spec/blob/9c60cb18151889d7b4c0a4ffd7de0b6fc2db0fb2/textbookSnapshotIsolation.tla#L673)
-* [2]https://github.com/pron/amazon-snapshot-spec/blob/9c60cb18151889d7b4c0a4ffd7de0b6fc2db0fb2/textbookSnapshotIsolation.tla#L789
+* [2](https://github.com/pron/amazon-snapshot-spec/blob/9c60cb18151889d7b4c0a4ffd7de0b6fc2db0fb2/textbookSnapshotIsolation.tla#L789)
 
 Чтобы запустить их и посмотреть, что все работает надо:
  1) В секции TLC "What is the behavior spec?", выбрать "No Behavior Spec"

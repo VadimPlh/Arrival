@@ -35,8 +35,8 @@ FailedPartsTypeOK == Range(failedParts)  \subseteq FailedParts
 LastAddedDataTypeOK == lastAddeddata \in SmthWithNONE(Nat)
 
 HistoryTypes == {"StartInsert", "EndInsert", "FailedInsert", "Read"}
-HistoryEvents == [type: HistoryTypes, timestamp: Nat, record_id: RecordsId]
-HistoryTypeOK == history \subseteq HistoryEvents
+HistoryEvents == [type: HistoryTypes, record_id: RecordsId]
+HistoryTypeOK == Range(history) \subseteq HistoryEvents
  
 TypeOK == /\ LogTypeOK
           /\ ReplicaStateTypeOK
@@ -59,33 +59,27 @@ GetNewRecordId == CHOOSE new_id \in SmthWithNONE(RecordsId):
 (*
  * Constructor for history events
  *)
- 
-GetNumber(h) == Cardinality(h) + 1
 
-StartInsertEvent(id) == history' = history \cup {[type |-> "StartInsert",
-                                                  timestamp |-> GetNumber(history),
-                                                  record_id |-> id]}
+StartInsertEvent(id) == history' = Append(history, [type |-> "StartInsert",
+                                                  record_id |-> id])
                                                   
-EndInsertEvent(id) == history' = history \cup {[type |-> "EndInsert",
-                                                timestamp |-> GetNumber(history),
-                                                record_id |-> id]}
+EndInsertEvent(id) == history' = Append(history, [type |-> "EndInsert",
+                                                record_id |-> id])
                                                 
-FailedInsertEvent(id) == history' = history \cup {[type |-> "FailedInsert",
-                                                   timestamp |-> GetNumber(history),
-                                                   record_id |-> id]}
+FailedInsertEvent(id) == history' = Append(history, [type |-> "FailedInsert",
+                                                   record_id |-> id])
                                                    
-ReadEvent(id) == history' = history \cup {[type |-> "Read",
-                                           timestamp |-> GetNumber(history),
-                                           record_id |-> id]}
+ReadEvent(id) == history' = Append(history, [type |-> "Read",
+                                           record_id |-> id])
 
 (*
  * Get smth for check Invarioants
  *)
 
-GetSelectFromHistory(h) == {record \in h: record.type = "Read"}
-GetStartInsertFromHistory(h) == {record \in h: record.type = "StartInsert"}
-GetFailedInsertFromHistory(h) == {record \in h: record.type = "FailedInsert"}
-GetEndInsertFromHistory(h) == {record \in h: record.type = "EndInsert"}
+GetSelectFromHistory(h) == {record \in Range(h): record.type = "Read"}
+GetStartInsertFromHistory(h) == {record \in Range(h): record.type = "StartInsert"}
+GetFailedInsertFromHistory(h) == {record \in Range(h): record.type = "FailedInsert"}
+GetEndInsertFromHistory(h) == {record \in Range(h): record.type = "EndInsert"}
 
 (*
  * Utilities for work with Quorum
@@ -111,7 +105,7 @@ Init ==
     /\ quorum = NullQuorum
     /\ lastAddeddata = NONE
     /\ failedParts = <<>>
-    /\ history = {}
+    /\ history = <<>>
 
     
 BecomeActive(replica) ==
@@ -204,7 +198,7 @@ QuorumReadLin ==
     
 LegitimateTermination ==
     /\ GetIds(failedParts) \cup GetCommitedId = RecordsId
-    /\ Cardinality(GetSelectFromHistory(history)) = HistoryLength
+    /\ Cardinality(GetSelectFromHistory(history)) >= HistoryLength
     /\ UNCHANGED vars
     
 ReplicaAction == 
@@ -241,30 +235,47 @@ QuorumSelect == [](Len(log) = 0 \/ \A i \in 1..Len(log):
  *)
 NotFailedParts == [](failedParts = <<>>)
 
-ReadAfterWrite == \A i \in GetSelectFromHistory(history):
-    /\ \E j \in GetStartInsertFromHistory(history):
-        /\ \E k \in GetEndInsertFromHistory(history):
-            /\ i.record_id = j.record_id
-            /\ i.record_id = k.record_id
-            /\ i.timestamp > j.timestamp
-            /\ i.timestamp > k.timestamp
+ReadAfterWrite ==
+    /\ \A i, j, k \in DOMAIN history:
+        /\ history[i] \in GetSelectFromHistory(history)
+        /\ history[j] \in GetStartInsertFromHistory(history)
+        /\ history[k] \in GetEndInsertFromHistory(history)
+        /\ history[i].record_id = history[j].record_id
+        /\ history[i].record_id = history[k].record_id
+        => /\ i > j
+           /\ i > k
             
-EndOrFailedAfterStartWrite == \A i \in GetStartInsertFromHistory(history):
-    \/ \E j \in GetEndInsertFromHistory(history):
-        /\ i.record_id = j.record_id
-        /\ i.timestamp < j.timestamp
-    \/ \E k \in GetFailedInsertFromHistory(history):
-        /\ i.record_id = k.record_id
-        /\ i.timestamp < k.timestamp
-        
-MonotonicRead == \A i, j \in GetSelectFromHistory(history):
-    /\ i.record_id # j.record_id
-    /\ i.timestamp < j.timestamp
-    => \E k, l \in GetEndInsertFromHistory(history):
-       /\ k.record_id = i.record_id
-       /\ l.record_id = j.record_id
-       /\ k.timestamp < l.timestamp
+EndOrFailedAfterStartWrite ==
+    /\ \A i, j, k \in DOMAIN history:
+        /\ history[i] \in GetStartInsertFromHistory(history)
+            \/ /\ history[j] \in GetEndInsertFromHistory(history)
+               /\ history[i].record_id = history[j].record_id
+               => i < j
+            \/ /\ history[k] \in GetEndInsertFromHistory(history)
+               /\ history[i].record_id = history[k].record_id
+                => i < k
+         
+MonotonicRead == 
+    /\ \A i, j, k, l \in DOMAIN history:
+        /\ history[i] \in GetSelectFromHistory(history)
+        /\ history[j] \in GetSelectFromHistory(history)
+        /\ history[k] \in GetEndInsertFromHistory(history)
+        /\ history[l] \in GetEndInsertFromHistory(history)
+        /\ history[i].record_id # history[j].record_id
+        /\ history[i].record_id = history[k].record_id
+        /\ history[j].record_id = history[l].record_id
+        /\ i < j
+        => k < l
         
 ValidEvents == [](ReadAfterWrite) /\ <>(EndOrFailedAfterStartWrite) /\ [](MonotonicRead)
+
+H == <<[type |-> "StartInsert", record_id |-> 1],
+ [type |-> "Read", record_id |-> 2],
+ [type |-> "FailedInsert", record_id |-> 3],
+ [type |-> "EndInsert", record_id |-> 4],
+ [type |-> "EndInsert", record_id |-> 5],
+ [type |-> "Read", record_id |-> 6]>>
+ 
+Unit_test == GetSelectFromHistory(H) = {[type |-> "Read", record_id |-> 2], [type |-> "Read", record_id |-> 6]}
 
 ======================================================================

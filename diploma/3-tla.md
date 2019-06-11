@@ -97,13 +97,13 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
 Подобные ограничения в TLA формулируют в виде assumption.
 
 Например:
-* FPaxos
+FPaxos
 
     ASSUME QuorumAssumption == /\ \A Q \in Quorum1 : Q \subseteq Acceptor
                             /\ \A Q \in Quorum2 : Q \subseteq Acceptor
                             /\ \A Q1 \in Quorum1 : \A Q2 \in Quorum2 : Q1 \cap Q2 # {}
 
-* Kafka
+Kafka
 
     ASSUME
         /\ None \notin Replicas
@@ -138,7 +138,7 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
 Для того, чтобы TLC проверял, что значения переменных находятся в рамках заявленных типов надо создать инвариант, который будет проверяться model checker-ом в каждом состоянии трейса.
 
 Примеры:
-* SI
+SI
 
     TypeInv ==  /\ history            \in Seq(EventsT)
                    (* A transaction may hold indepedent exclusive locks on any number of keys *)
@@ -148,7 +148,7 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
                 /\ inConflict         \in [TxnId -> BOOLEAN]
                 /\ outConflict        \in [TxnId -> BOOLEAN]
                 /\ holdingSIREADlocks \in [TxnId -> SUBSET Key]
-* Kafka
+Kafka
 
     TypeOk ==
         /\ LeaderEpochSeq!TypeOk
@@ -157,7 +157,7 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
         /\ replicaState \in [Replicas -> ReplicaState]
         /\ quorumState \in QuorumState
         /\ leaderAndIsrRequests \subseteq QuorumState
-* Paxos
+Paxos
 
     TypeOK == /\ maxBal \in [Acceptor -> Ballot \cup {-1}]
               /\ maxVBal \in [Acceptor -> Ballot \cup {-1}]
@@ -174,7 +174,7 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
 
 
 Примеры:
-* Kafka:
+Kafka:
 
     CONSTANTS
         Replicas,
@@ -183,7 +183,7 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
         MaxLeaderEpoch
 
 ограничили длину лога, кол-во эпох
-* SI:
+SI:
 
     CONSTANTS TxnId, Key
 

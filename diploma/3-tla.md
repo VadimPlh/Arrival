@@ -19,28 +19,28 @@
         /\ FindAllNodesInAnyCycle({<<"a", "d">>, <<"d", "b">>, <<"c", "d">>, <<"d", "c">>}) = {"d", "c"}           (* cycles plus some nodes not in any cycle but which join to a cycle *)
         /\ FindAllNodesInAnyCycle({<<"a", "b">>, <<"b", "a">>, <<"c", "c">>, <<"d", "c">>}) = {"a", "b", "c"}      (* multiple disjoint cycles including length > 1 *)
 
-        UnitTest_WellFormedTransactionsInHistory ==
-                 (* must begin *)
-            /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"]>>)
-                 (* just begin & commit *)
-            /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "commit", txnid |-> "T_1"]>>)
-                 (* begin, readX, writeY, commit *)
-            /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"], [op |-> "write", txnid |-> "T_1", key |-> "K_Y"], [op |-> "commit", txnid |-> "T_1"]>>)
-                 (* begin, readX, writeX, abort *)
-            /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "abort", txnid |-> "T_1", reason |-> "voluntary"]>>)
-            (* Negative tests *)
-                 (* begin out of place *)
-            /\ ~ WellFormedTransactionsInHistory(<<[op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "begin", txnid |-> "T_1"]>>)
-                 (* multiple begin *)
-            /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "begin", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
-                 (* commit out of place (after a begin of a different transaction) *)
-            /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "commit", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
-                 (* abort out of place *)
-            /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "abort", txnid |-> "T_1", reason |-> "voluntary"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
-                 (* Violation of Bernstein's simplification: multiple writes to same key *)
-            /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
-                 (* Violation of Bernstein's simplification: multiple reads of same key *)
-            /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"]>>)
+    UnitTest_WellFormedTransactionsInHistory ==
+             (* must begin *)
+        /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"]>>)
+             (* just begin & commit *)
+        /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "commit", txnid |-> "T_1"]>>)
+             (* begin, readX, writeY, commit *)
+        /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"], [op |-> "write", txnid |-> "T_1", key |-> "K_Y"], [op |-> "commit", txnid |-> "T_1"]>>)
+             (* begin, readX, writeX, abort *)
+        /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "abort", txnid |-> "T_1", reason |-> "voluntary"]>>)
+        (* Negative tests *)
+             (* begin out of place *)
+        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "begin", txnid |-> "T_1"]>>)
+             (* multiple begin *)
+        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "begin", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
+             (* commit out of place (after a begin of a different transaction) *)
+        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "commit", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
+             (* abort out of place *)
+        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "abort", txnid |-> "T_1", reason |-> "voluntary"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
+             (* Violation of Bernstein's simplification: multiple writes to same key *)
+        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
+             (* Violation of Bernstein's simplification: multiple reads of same key *)
+        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"]>>)
 
 "Запустить" их можно так:
  1) В секции TLC "What is the behavior spec?", выбрать "No Behavior Spec"
@@ -98,11 +98,13 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
 
 Например:
 * FPaxos
+
     ASSUME QuorumAssumption == /\ \A Q \in Quorum1 : Q \subseteq Acceptor
                             /\ \A Q \in Quorum2 : Q \subseteq Acceptor
                             /\ \A Q1 \in Quorum1 : \A Q2 \in Quorum2 : Q1 \cap Q2 # {}
 
 * Kafka
+
     ASSUME
         /\ None \notin Replicas
         /\ MaxLeaderEpoch \in Nat
@@ -136,7 +138,8 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
 Для того, чтобы TLC проверял, что значения переменных находятся в рамках заявленных типов надо создать инвариант, который будет проверяться model checker-ом в каждом состоянии трейса.
 
 Примеры:
-* [SI]
+* SI
+
     TypeInv ==  /\ history            \in Seq(EventsT)
                    (* A transaction may hold indepedent exclusive locks on any number of keys *)
                 /\ holdingXLocks      \in [TxnId -> SUBSET Key]
@@ -146,6 +149,7 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
                 /\ outConflict        \in [TxnId -> BOOLEAN]
                 /\ holdingSIREADlocks \in [TxnId -> SUBSET Key]
 * Kafka
+
     TypeOk ==
         /\ LeaderEpochSeq!TypeOk
         /\ RecordSeq!TypeOk
@@ -154,6 +158,7 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
         /\ quorumState \in QuorumState
         /\ leaderAndIsrRequests \subseteq QuorumState
 * Paxos
+
     TypeOK == /\ maxBal \in [Acceptor -> Ballot \cup {-1}]
               /\ maxVBal \in [Acceptor -> Ballot \cup {-1}]
               /\ maxVal \in [Acceptor -> Value \cup {None}]
@@ -170,14 +175,18 @@ DoNotMerge == [](\A record \in Range(log): record.type != "Merge").
 
 Примеры:
 * Kafka:
+
     CONSTANTS
         Replicas,
         LogSize,
         MaxRecords,
         MaxLeaderEpoch
+
 ограничили длину лога, кол-во эпох
 * SI:
+
     CONSTANTS TxnId, Key
+
 ограничили кол-во транзакций
 
 Введя ограничения на длину событий в системе, мы ограничили глубину в графе состояний. Таким образом мы могли получить состояние, откуда не существует перехода в другой экшен, так как все события уже произошли. Если запустить TLC, то он найдет дедлок (это ситуация, когда из состояния нет следующих доступных переходов), когда попытается выполнить переход из "плохого" состояния. Но этот дедлок никак не связан с дедлоком алгоритма, так как система просто завершился. Лампорт пишет: "A deadlock is said to occur in a state for which the next-state relation allows no successor states.  Termination is deadlock that is not considered an error.  If you want the behavior spec to allow termination, then you should uncheck the deadlock option." Но никто не хочет отключать одну из важных проверок для системы, поэтому воспользуемся трюком из спеки SI.
@@ -237,6 +246,7 @@ liveness св-ва о прогрессе нашей системы. Они го�
 Пример: В спеки Kafka есть [честность](https://github.com/hachikuji/kafka-specification/blob/3cc3cf6914f76573f8b66fb700f8b90ac7ca8bed/KafkaTruncateToHighWatermark.tla#L44) у некоторых действий.
 
 Например:
+
     Spec == Init /\ [][Next]_vars
                  /\ SF_vars(LeaderIncHighWatermark)
                  /\ SF_vars(LeaderExpandIsr)

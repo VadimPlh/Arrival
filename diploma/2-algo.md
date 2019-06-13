@@ -35,6 +35,53 @@ Percolator - это протокол ckient side расаределенрныз 
 
 Первый шаг работы над спецификаций системы -  выбор уровень детализации разных компонент.
 
+### Моделирование участников
+Когда мы пишем распределенную систему нам удобно рассуждать с точки зрения наблюдателя. Моделировать компоненты, которые играют важную роль в нашей системе (ноды, клиент и e.t.c). Описать систему, как ее видит польщователь, так ка это даст наибольшую интуитивность.
+
+Например:
+
+В Paxos есть отдельные сущности для acceptor-ов, системы кворумов, которые играют важную роль в алгоритме.
+
+    CONSTANT Value, Acceptor, Quorum1, Quorum2
+
+Действия proposer-ов моделируют отдельными экшенами, которые предлагают значения.
+
+В Raft явно моделируются узлы, которые участвуют в алгоритме:
+
+    \* The set of server IDs
+    CONSTANTS Server
+
+Аналогично происходит в Kafka-е
+
+
+Можно моделировать не участников системы, а описать поведение объектов, с которыми эта система работает (описать как будут себя вести компоненты сервиса). Пусть у нас есть лог с записями. Можем моделировать не клиента, который эти записи делает, а сами записи изнутри, то есть описать как записи взаимодействуют друг с другом.
+
+Такой подход используется в спеке SI. Там моделируется конечное число транзакций, которые поступают в систему.
+
+И для них описываются их основные действия. Начало, конец, аборт и т.п.
+
+    BeginEventsT   == [op : {"begin"},  txnid : TxnId]
+    AbortEventsT   == [op : {"abort"},  txnid : TxnId, reason : AbortReasons]
+    CommitEventsT  == [op : {"commit"}, txnid : TxnId]
+    ReadEventsT    == [op : {"read"},   txnid : TxnId, key : Key, ver : TxnId]
+    WriteEventsT   == [op : {"write"},  txnid : TxnId, key : Key]
+
+Вот, что Лампорт пишет об этом:
+"Mathematical manipulation of specifications can yield new insight. A producer/consumer system can be written as the conjunction of two formulas, representing the producer and consumer processes. Simple mathematics allows us to rewrite the same specification as the conjunction of n formulas, each representing a single buffer element. We can view the system not only as the composition of a producer and a consumer process, but also as the composition of n buffer-element processes. Processes are not fundamental components of a system, but abstractions that we impose on it. This insight could not have come from writing specifications in a language whose basic component is the process."
+
+Это все сильно завязано на свойства, которые мы хотим проверять. Нам не интересно моделировать записи в логе, когда мы хотим проверить, например, алгоритм для выбора лидера в системе. Или репликацию между несколькими серверами. Так как со со "стороны записей" нет понимания о репликации. Нам хочется описывать сущности с которыми работает система, когда надо проверить порядок на них, или увидеть как они взаимодействуют между собой.
+
+Примеры:
+* Acceptor-ы и Proposer-ы в Paxos
+* Leader и follwer-ы в Raft и Kafka
+
+ и обмениваются сообщениями
+
+Примеры:
+* Запрос на участие в выборах лидера в Kafka-е
+* Запросы Promise и Accept в Paxos
+* Запросы во время выборов лидера и репликацию в Raft-е
+
 ### Моделирование мира
 Займемся моделированием мира, в котором функционирует наша система: опишем, как функционирует сеть, с какой скоростью работают узлы, как течет время и т.п.
 

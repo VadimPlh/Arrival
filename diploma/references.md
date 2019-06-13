@@ -1,0 +1,10 @@
+1) https://lamport.azurewebsites.net/pubs/lamport-types.pdf
+2) https://github.com/will62794/snapshot-isolation-spec
+3) http://tla2012.loria.fr/contributed/newcombe-slides.pdf
+4) https://lamport.azurewebsites.net/tla/formal-methods-amazon.pdf
+5) https://github.com/hachikuji/kafka-specification
+6) https://github.com/will62794/snapshot-isolation-spec
+7) https://github.com/pron/amazon-snapshot-spec
+8) https://github.com/fpaxos/fpaxos-tlaplus/blob/master/FPaxos.tla
+9) https://github.com/pingcap/tla-plus/tree/master/Percolator
+10) https://lamport.azurewebsites.net/pubs/spec-and-verifying.ps

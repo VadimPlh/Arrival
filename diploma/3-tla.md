@@ -11,39 +11,18 @@
     UnitTests_FindAllNodesInAnyCycle ==
         /\ FindAllNodesInAnyCycle({})                                                       = {}
         /\ FindAllNodesInAnyCycle({<<"a", "b">>})                                           = {}
-        /\ FindAllNodesInAnyCycle({<<"a", "b">>, <<"b", "c">>, <<"c", "d">>})               = {}                   (* no cycle, more nodes *)
-        /\ FindAllNodesInAnyCycle({<<"a", "a">>})                                           = {"a"}                (* cycle of length 1 *)
-        /\ FindAllNodesInAnyCycle({<<"a", "b">>, <<"b", "a">>})                             = {"a", "b"}           (* cycle of length 2 *)
-        /\ FindAllNodesInAnyCycle({<<"a", "b">>, <<"b", "c">>, <<"c", "d">>, <<"d", "a">>}) = {"a", "b", "c", "d"} (* cycle of length 3 *)
-        /\ FindAllNodesInAnyCycle({<<"a", "a">>, <<"b", "b">>})                             = {"a", "b"}           (* multiple disjoint cycles of length 1*)
-        /\ FindAllNodesInAnyCycle({<<"a", "d">>, <<"d", "b">>, <<"c", "d">>, <<"d", "c">>}) = {"d", "c"}           (* cycles plus some nodes not in any cycle but which join to a cycle *)
-        /\ FindAllNodesInAnyCycle({<<"a", "b">>, <<"b", "a">>, <<"c", "c">>, <<"d", "c">>}) = {"a", "b", "c"}      (* multiple disjoint cycles including length > 1 *)
+        /\ FindAllNodesInAnyCycle({<<"a", "b">>, <<"b", "c">>, <<"c", "d">>})               = {}
+
 
 Эти юнит тесты проверяют, что WellFormedTransactionsInHistory обнаруживает, что последовательность операций в любой транзакции имеет вид: Begin -> Writes/Reads -> Abort/Commit
 
     UnitTest_WellFormedTransactionsInHistory ==
              (* must begin *)
         /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"]>>)
-             (* just begin & commit *)
-        /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "commit", txnid |-> "T_1"]>>)
-             (* begin, readX, writeY, commit *)
-        /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"], [op |-> "write", txnid |-> "T_1", key |-> "K_Y"], [op |-> "commit", txnid |-> "T_1"]>>)
-             (* begin, readX, writeX, abort *)
-        /\   WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "abort", txnid |-> "T_1", reason |-> "voluntary"]>>)
-        (* Negative tests *)
-             (* begin out of place *)
         /\ ~ WellFormedTransactionsInHistory(<<[op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "begin", txnid |-> "T_1"]>>)
              (* multiple begin *)
         /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "begin", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
-             (* commit out of place (after a begin of a different transaction) *)
-        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "commit", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
-             (* abort out of place *)
-        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "abort", txnid |-> "T_1", reason |-> "voluntary"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
-             (* Violation of Bernstein's simplification: multiple writes to same key *)
-        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
-             (* Violation of Bernstein's simplification: multiple reads of same key *)
-        /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"], [op |-> "read", txnid |-> "T_1", key |-> "K_X", ver |-> "T_2"]>>)
-
+        
 "Запустить" их можно так:
  1) В секции TLC "What is the behavior spec?", выбрать "No Behavior Spec"
  2) В "Evaluate Constant Expression" написать название юнит-теста

@@ -255,14 +255,8 @@ Percolator - это протокол ckient side расаределенрныз 
 
     Next == /\ \/ \E i \in Server : Restart(i)
                \/ \E i \in Server : Timeout(i)
-               \/ \E i,j \in Server : RequestVote(i, j)
-               \/ \E i \in Server : BecomeLeader(i)
-               \/ \E i \in Server, v \in Value : ClientRequest(i, v)
-               \/ \E i \in Server : AdvanceCommitIndex(i)
-               \/ \E i,j \in Server : AppendEntries(i, j)
                \/ \E m \in DOMAIN messages : Receive(m)
                \/ \E m \in DOMAIN messages : DuplicateMessage(m)
-               \/ \E m \in DOMAIN messages : DropMessage(m)
 
 
 В спеке Paxos-а выбирается какое сообщение будет обработано или какой из acceptor-ов ответит на запрос
@@ -281,17 +275,9 @@ Percolator - это протокол ckient side расаределенрныз 
 
 В Kafka-е:
 
-    ControllerShrinkIsr == \E replica \in Replicas :
-        /\  \/  /\ quorumState.leader = replica
-                /\ quorumState.isr = {replica}
-                /\ ControllerUpdateIsr(None, quorumState.isr)
-            \/  /\ quorumState.leader = replica
-                /\ quorumState.isr # {replica}
-                /\ ControllerUpdateIsr(None, quorumState.isr \ {replica})
-            \/  /\ quorumState.leader # replica
-                /\ replica \in quorumState.isr
-                /\ quorumState.isr # {replica}
-                /\ ControllerUpdateIsr(quorumState.leader, quorumState.isr \ {replica})
+    ControllerElectLeader == \E newLeader \in quorumState.isr :
+        /\ quorumState.leader # newLeader
+        /\ ControllerUpdateIsr(newLeader, quorumState.isr)
         /\ UNCHANGED <<nextRecordId, replicaLog, replicaState>>
 
 В одном экшене все действия происходят за один раз
@@ -391,7 +377,6 @@ Liveness свойства пости никогда не применяются 
 
 
 ### Обрезки
-
 Когда мы пишем распределенную систему нам удобно рассуждать с точки зрения наблюдателя. Моделировать компоненты, которые играют важную роль в нашей системе (узлы, клиент и e.t.c). Описать систему, как ее видит польщователь, так ка это даст наибольшую интуитивность.
 
 Например:

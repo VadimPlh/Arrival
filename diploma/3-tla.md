@@ -12,6 +12,7 @@
         /\ FindAllNodesInAnyCycle({})                                                       = {}
         /\ FindAllNodesInAnyCycle({<<"a", "b">>})                                           = {}
         /\ FindAllNodesInAnyCycle({<<"a", "b">>, <<"b", "c">>, <<"c", "d">>})               = {}
+        ...
 
 
 Эти юнит тесты проверяют, что WellFormedTransactionsInHistory обнаруживает, что последовательность операций в любой транзакции имеет вид: Begin -> Writes/Reads -> Abort/Commit
@@ -22,7 +23,8 @@
         /\ ~ WellFormedTransactionsInHistory(<<[op |-> "write", txnid |-> "T_1", key |-> "K_X"], [op |-> "begin", txnid |-> "T_1"]>>)
              (* multiple begin *)
         /\ ~ WellFormedTransactionsInHistory(<<[op |-> "begin", txnid |-> "T_1"], [op |-> "begin", txnid |-> "T_1"], [op |-> "write", txnid |-> "T_1", key |-> "K_X"]>>)
-        
+        ...
+
 "Запустить" их можно так:
  1) В секции TLC "What is the behavior spec?", выбрать "No Behavior Spec"
  2) В "Evaluate Constant Expression" написать название юнит-теста

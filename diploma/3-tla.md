@@ -228,7 +228,11 @@ TLC умеет печатать трейс, который привел к ош�
         \/ ControllerShrinkIsr
         \/ BecomeLeader
         \/ LeaderExpandIsr
-        ...
+        \/ LeaderShrinkIsr
+        \/ LeaderWrite
+        \/ LeaderIncHighWatermark
+        \/ BecomeFollowerTruncateToHighWatermark
+        \/ FollowerReplicate
 
 При использовании такой записи в трейсе будет явно отражен, какой экшен был взят.
 

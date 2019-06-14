@@ -28,6 +28,19 @@
 * Commit в Snapshot Isolation -  транзакция выполнила Commit
 * LegitimateTermination в Snapshot Isolation - все транзакции выполнили coomit или abort
 
+Система состоит из реакции на все эти события:
+
+    Next ==
+        \/ ControllerElectLeader
+        \/ ControllerShrinkIsr
+        \/ BecomeLeader
+        \/ LeaderExpandIsr
+        \/ LeaderShrinkIsr
+        \/ LeaderWrite
+        \/ LeaderIncHighWatermark
+        \/ BecomeFollowerTruncateToHighWatermark
+        \/ FollowerReplicate
+
 ### Уровень абстракции
 Распределенная система представляет собой отдельные узлы / микросервисы, которые играют разные роли, и взаимодействуют обмениваясь сообщениями. Но внешний пользователь как правило не наблюдает никакой распределенности, узлы системы скрыты от него за сетевым адресом. По этому адресу клиент отправляет команды: Get/Set для k/v хранилища, Create/Append/Delete для файловых систем и т.п. и получает ответ, чаще всего через некоторую клиентскую библиотеку или простой crud. Для пользователя система – это конкурентный объект в модели shared memory, а сетевой адрес - по сути имя этого объекта.
 

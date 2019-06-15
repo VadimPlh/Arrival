@@ -197,8 +197,7 @@ Kafka
         /\ MaxLeaderEpoch \in Nat
 
 ### TypeOk
-*В TLA+ использует нетипизированную теорию мн-в, создатель TLA+ Лампорт в своей статье ["Should Your Specification Language Be Typed?"](https://lamport.azurewebsites.net/pubs/lamport-types.pdf) описывает, почему он сделал такой выбор. Лампорт в TLA+ не выбрал строго-типизированный язык, так как проверка типов может создать излишнюю сложность при написании формальной спецификации. Языки программирования используют типы для проверки на стадии компиляции. Строгие типы помогают отловить класс ошибок, которые могут произойти во время работы программы, но они сильно усложняют язык и накладывают ограничения.*
-TLA+ использует теорию мн-в вместе с проверкой типов, что создает дополнительное условие для проверки TLC и помогает отловить класс ошибок.
+TLA похож на динамический язык, а значит, он наследует все его проблемы. Например, можно несколько дней ждать пока model checker верифицирует спеку и получить исключение об ошибке конвертации bool к int.
 
 "If a specification language is to be general, it must be expressive. No simple type system is as expressive as untyped set theory. While a simple type system can allow many specifications to be written easily, it will make some impossible to write and others more complicated than they would be in set theory."
 

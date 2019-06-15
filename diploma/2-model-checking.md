@@ -211,10 +211,11 @@ TLA+ использует теорию мн-в вместе с проверко�
 Paxos:
 
     Message ==      [type : {"1a"}, bal : Ballot]
-               \cup [type : {"1b"}, acc : Acceptor, bal : Ballot, mbal : Ballot \cup {-1}, mval : Value \cup {None}]
+               \cup [type : {"1b"}, acc : Acceptor, bal : Ballot,
+                     mbal : Ballot \cup {-1}, mval : Value \cup {None}]
                \cup [type : {"2a"}, bal : Ballot, val : Value]
                \cup [type : {"2b"}, acc : Acceptor, bal : Ballot, val : Value]
-
+               
    TypeOK == /\ maxBal \in [Acceptor -> Ballot \cup {-1}]
              /\ maxVBal \in [Acceptor -> Ballot \cup {-1}]
              /\ maxVal \in [Acceptor -> Value \cup {None}]

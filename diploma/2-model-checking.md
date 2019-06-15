@@ -220,33 +220,6 @@ Paxos:
               /\ maxVal \in [Acceptor -> Value \cup {None}]
               /\ msgs \subseteq Message
 
-Kafka:
-
-    QuorumState == [leaderEpoch: LeaderEpochOpt,
-                    leader : ReplicaOpt,
-                    isr: SUBSET Replicas]
-
-    ReplicaState == [hw : ReplicaLog!Offsets \union {LogSize},
-                     leaderEpoch: LeaderEpochOpt,
-                     leader : ReplicaOpt,
-                     isr: SUBSET Replicas]
-
-     TypeOk ==
-         ...
-         /\ replicaState \in [Replicas -> ReplicaState]
-         /\ quorumState \in QuorumState
-         /\ leaderAndIsrRequests \subseteq QuorumState
-SI
-
-    TypeInv ==  /\ history            \in Seq(EventsT)
-                   (* A transaction may hold indepedent exclusive locks on any number of keys *)
-                /\ holdingXLocks      \in [TxnId -> SUBSET Key]
-                   (* A transaction can be waiting for at most one exclusive lock *)
-                /\ waitingForXLock    \in [TxnId -> Key \union {NoLock}]
-                /\ inConflict         \in [TxnId -> BOOLEAN]
-                /\ outConflict        \in [TxnId -> BOOLEAN]
-                /\ holdingSIREADlocks \in [TxnId -> SUBSET Key]
-
 Для пользовательских структур надо определить тип для каждого поля из структуры. Для этого надо сгенерировать все возможные значения, которые может принимать ваша структура (Это делается [a: {...}, b: {2, 3}, ...], такая запись генерирует мн-во со всеми возможными значениями. Если одно из значений не мн-во, то стоит использовать "->" [a -> 1, b: {2, 3}, ...]). В инварианте проверять, что переменная \in во всех возможных значениях
 
 ## Читаемая траектория

@@ -31,8 +31,6 @@ C помощью этих методов разработчики пытаютс
 
 "We have found that testing the code is inadequate as a method to find subtle errors in design, as the number of reachable states of the code is astronomical. So we looked for a better approach."
 
-
-
 ## Формальный методы
 Тот самый лучший подохд для верификации сложных систем - это формальные методы.
 

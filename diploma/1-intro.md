@@ -23,7 +23,15 @@
 ### Проблемы техник
 Но эти техники не подохдят для распределенных систем, так как человек является ключевым звеном в каждом из них, а он не способен промоделировать у себя в голове все выполнения и может что-то упустить.
 
-Эту мысль подтверждают инженеры из Amazon: "We use deep design reviews, code reviews, static code analysis, stress testing, fault-injection testing, and many other techniques, but we still find that subtle bugs can hide in complex concurrent fault-tolerant systems. One reason for this problem is that human intuition is poor at estimating the true probability of supposedly ‘extremely rare’ combinations of events in systems operating at a scale of millions of requests per second ... We have found that testing the code is inadequate as a method to find subtle errors in design, as the number of reachable states of the code is astronomical. So we looked for a better approach."
+Эту мысль подтверждают инженеры из Amazon: "We use deep design reviews, code reviews, static code analysis, stress testing, fault-injection testing, and many other techniques, but we still find that subtle bugs can hide in complex concurrent fault-tolerant systems. One reason for this problem is that human intuition is poor at estimating the true probability of supposedly ‘extremely rare’ combinations of events in systems operating at a scale of millions of requests per second ..."
+
+Есть рандомизированные подохды к тестированию, например: fault injection. Они основаны на внедрение в код неисправностей, которые срабатывают в произвольные моменты времени. Например: переключение потоков при тестировании многопоточных алгоритмов. Одной из реализаций такого подхода является фреймворк Jepsen, который помог найти баги в Cassandra, FaunaDB, Kafka и других.
+
+C помощью этих методов разработчики пытаются покрыть как можно больше нетривиальных поведений. Но эти техники тестирования статистически не могут проверить очень редкие баги.
+
+"We have found that testing the code is inadequate as a method to find subtle errors in design, as the number of reachable states of the code is astronomical. So we looked for a better approach."
+
+
 
 ## Формальный методы
 Тот самый лучший подохд для верификации сложных систем - это формальные методы.

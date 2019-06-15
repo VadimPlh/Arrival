@@ -214,14 +214,19 @@ Paxos:
                \cup [type : {"2a"}, bal : Ballot, val : Value]
                \cup [type : {"2b"}, acc : Acceptor, bal : Ballot, val : Value]
 
+   ...
+
+   TypeOK == /\ maxBal \in [Acceptor -> Ballot \cup {-1}]
+             /\ maxVBal \in [Acceptor -> Ballot \cup {-1}]
+             /\ maxVal \in [Acceptor -> Value \cup {None}]
+             /\ msgs \subseteq Message
+
 Raft:
 
     ReplicaState == [hw : ReplicaLog!Offsets \union {LogSize},
                      leaderEpoch: LeaderEpochOpt,
                      leader : ReplicaOpt,
                      isr: SUBSET Replicas]
-
-Примеры TypeOk:
 SI
 
     TypeInv ==  /\ history            \in Seq(EventsT)
@@ -241,12 +246,6 @@ Kafka
         /\ replicaState \in [Replicas -> ReplicaState]
         /\ quorumState \in QuorumState
         /\ leaderAndIsrRequests \subseteq QuorumState
-Paxos
-
-    TypeOK == /\ maxBal \in [Acceptor -> Ballot \cup {-1}]
-              /\ maxVBal \in [Acceptor -> Ballot \cup {-1}]
-              /\ maxVal \in [Acceptor -> Value \cup {None}]
-              /\ msgs \subseteq Message
 
 Для пользовательских структур надо определить тип для каждого поля из структуры. Для этого надо сгенерировать все возможные значения, которые может принимать ваша структура (Это делается [a: {...}, b: {2, 3}, ...], такая запись генерирует мн-во со всеми возможными значениями. Если одно из значений не мн-во, то стоит использовать "->" [a -> 1, b: {2, 3}, ...]). В инварианте проверять, что переменная \in во всех возможных значениях
 

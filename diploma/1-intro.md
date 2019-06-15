@@ -20,7 +20,6 @@
 * Код ревью - после прохождения всех рукописных тестов разработчики пытаются найти баги с помощью просмотра нового кода.
 * Дизайн ревью - разработчики описывают компоненты системы и их взаимодецйствие.
 
-### Проблемы техник
 Но эти техники не подохдят для распределенных систем, так как человек является ключевым звеном в каждом из них, а он не способен промоделировать у себя в голове все выполнения и может что-то упустить.
 
 Эту мысль подтверждают инженеры из Amazon: "We use deep design reviews, code reviews, static code analysis, stress testing, fault-injection testing, and many other techniques, but we still find that subtle bugs can hide in complex concurrent fault-tolerant systems. One reason for this problem is that human intuition is poor at estimating the true probability of supposedly ‘extremely rare’ combinations of events in systems operating at a scale of millions of requests per second ..."

@@ -54,51 +54,32 @@ Percolator - это протокол ckient side расаределенрныз 
 В самом начале надо понять: какие компоненты системы надо моделировать, а какие нет. Например в ClickHouse мы не моделируем log в ZooKeeper, а считаем, что это просто атомарная ячейка памяти. А в Raft log явно представлен на всех репликах.
 
 ### Моделирование участников
-Когда мы пишем распределенную систему нам удобно рассуждать с точки зрения наблюдателя. Моделировать компоненты, которые играют важную роль в нашей системе (узлы, клиент и e.t.c). Описать систему, как ее видит польщователь, так ка это даст наибольшую интуитивность.
-
-Например:
-
-В Paxos есть отдельные сущности для acceptor-ов, системы кворумов, которые играют важную роль в алгоритме.
-
-    CONSTANT Value, Acceptor, Quorum1, Quorum2
-
-Действия proposer-ов моделируют отдельными экшенами, которые предлагают значения.
-
-В Raft явно моделируются узлы, которые участвуют в алгоритме:
-
-    \* The set of server IDs
-    CONSTANTS Server
-
-Аналогично происходит в Kafka-е
-
-
-Можно моделировать не участников системы, а описать поведение объектов, с которыми эта система работает (описать как будут себя вести компоненты сервиса). Пусть у нас есть лог с записями. Можем моделировать не клиента, который эти записи делает, а сами записи изнутри, то есть описать как записи взаимодействуют друг с другом.
-
-Такой подход используется в спеке SI. Там моделируется конечное число транзакций, которые поступают в систему.
-
-И для них описываются их основные действия. Начало, конец, аборт и т.п.
-
-    BeginEventsT   == [op : {"begin"},  txnid : TxnId]
-    AbortEventsT   == [op : {"abort"},  txnid : TxnId, reason : AbortReasons]
-    CommitEventsT  == [op : {"commit"}, txnid : TxnId]
-    ReadEventsT    == [op : {"read"},   txnid : TxnId, key : Key, ver : TxnId]
-    WriteEventsT   == [op : {"write"},  txnid : TxnId, key : Key]
+Иногда не надо я вно моделировать сущности, которые производят действия в системе.
 
 Вот, что Лампорт пишет об этом:
 "Mathematical manipulation of specifications can yield new insight. A producer/consumer system can be written as the conjunction of two formulas, representing the producer and consumer processes. Simple mathematics allows us to rewrite the same specification as the conjunction of n formulas, each representing a single buffer element. We can view the system not only as the composition of a producer and a consumer process, but also as the composition of n buffer-element processes. Processes are not fundamental components of a system, but abstractions that we impose on it. This insight could not have come from writing specifications in a language whose basic component is the process."
 
-Это все сильно завязано на свойства, которые мы хотим проверять. Нам не интересно моделировать записи в логе, когда мы хотим проверить, например, алгоритм для выбора лидера в системе. Или репликацию между несколькими серверами. Так как со со "стороны записей" нет понимания о репликации. Нам хочется описывать сущности с которыми работает система, когда надо проверить порядок на них, или увидеть как они взаимодействуют между собой.
+Для распределенных систем можно так же моделировать не самих участников, а сущности, с которыми они работают.
 
-Примеры:
-* Acceptor-ы и Proposer-ы в Paxos
-* Leader и follwer-ы в Raft и Kafka
+Например:
 
- и обмениваются сообщениями
+В Paxos у proposal-а внутри бесконечный цикл, в котором он выбирает новый ballot и пытается предлодить значения.
 
-Примеры:
-* Запрос на участие в выборах лидера в Kafka-е
-* Запросы Promise и Accept в Paxos
-* Запросы во время выборов лидера и репликацию в Raft-е
+В спеке вместо этого цикла моделируются новые ballot-ы, которые использует proposal.
+
+    Next == \/ \E b \in Ballot : \/ Phase1a(b)
+                                 \/ \E v \in Value : Phase2a(b, v)
+            \/ \E a \in Acceptor : Phase1b(a) \/ Phase2b(a)
+
+В Snapshot Isolation не моделируются клиенты, а транзакции рождаются из воздуха
+
+    Next == \/ \E txn \in TxnId :
+
+                   (* Public actions *)
+                \/ Begin(txn)
+                \/ Commit(txn)
+                \/ ChooseToAbort(txn)
+                ...
 
 ### Моделирование мира
 Займемся моделированием мира, в котором функционирует наша система: опишем, как функционирует сеть, с какой скоростью работают узлы, как течет время и т.п.
@@ -249,7 +230,35 @@ Percolator - это протокол ckient side расаределенрныз 
 
 В этой работе тема Византийских отказов затронута не будет. Но стоит заметить, что моделировать в TLA+ их можно.
 
-### Недетерминизм
+### Время
+Время в распределенных системах используется для создания timeout-ов.
+
+Если за определнный период узел не получил ответ от другого, то он считает его умершим.
+
+Например:
+
+В Raft узел ждет определенное время ответ от текущего лидера, если он его не получает, то инициирует выборы нового лидера и переходит в фазу Candidate
+
+    Timeout(i) == /\ state[i] \in {Follower, Candidate}
+                  /\ state' = [state EXCEPT ![i] = Candidate]
+                  /\ currentTerm' = [currentTerm EXCEPT ![i] = currentTerm[i] + 1]
+                  \* Most implementations would probably just set the local vote
+                  \* atomically, but messaging localhost for it is weaker.
+                  /\ votedFor' = [votedFor EXCEPT ![i] = Nil]
+                  /\ votesResponded' = [votesResponded EXCEPT ![i] = {}]
+                  /\ votesGranted'   = [votesGranted EXCEPT ![i] = {}]
+                  /\ voterLog'       = [voterLog EXCEPT ![i] = [j \in {} |-> <<>>]]
+                  /\ UNCHANGED <<messages, leaderVars, logVars>>
+
+В Kafke контроллер создает эфимерную znode в ZooKeeper, которая удаляется, когда контроллер умирает или теряет связь. Внутри ZooKeeper этот механизм использует таймауты, так же как и Raft. Аналогично изменяется лидер партиции. Если контроллер видит, что в ZooKeeper пропала znode для текущего лидера, то он его переназначает из ISR.
+
+    ControllerElectLeader == \E newLeader \in quorumState.isr :
+        /\ quorumState.leader # newLeader
+        /\ ControllerUpdateIsr(newLeader, quorumState.isr)
+        /\ UNCHANGED <<nextRecordId, replicaLog, replicaState>>
+
+
+### Недетерминиз
 Недетерминизм является одним из главных источников сложности проектирования распределенных систем. Недетерминизм возникает естественным образом из-за реактивной природы распределенных систем: они реагируют на внешние воздействия (запросы клиентов) и подвержены влиянию неконтролируемой среды (сеть, течение времени), железа / runtime-а  (паузы gc) и сбоев.
 
 Примером недетерминизма в многопоточных программах может служить поведение планировщика ОС. Заранее неизвестно, когда планировщик будет производить переключение потоков и порядок на них. Из-за этого тестирование становится очень сложным. В распределенных системах недетерминизм заключается во времени доставки сообщений, их потери или дубликации, в сбоях и рестартах узлов системы, в запросах клиентов, которые будут поступать. Так же выборы лидера, которые используется в многих алгоритмах, играют важную роль в недетерминизме, так как заранее нельзя сказать, какая последовательность узлов будет выбрана.

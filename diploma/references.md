@@ -8,3 +8,6 @@
 8) https://github.com/fpaxos/fpaxos-tlaplus/blob/master/FPaxos.tla
 9) https://github.com/pingcap/tla-plus/tree/master/Percolator
 10) https://lamport.azurewebsites.net/pubs/spec-and-verifying.ps
+11) https://jepsen.io
+12) https://jepsen.io/consistency
+13) https://github.com/lorin/tla-linearizability

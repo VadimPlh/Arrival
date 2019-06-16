@@ -69,6 +69,9 @@ TLA+ - это язык формальной спецификации, котор
                 LET r == History[i].region
                 IN History[i].data \in {Database[r][j] : j \in DOMAIN Database[r]} \union {0}
 
+    Invariant == /\ TypeOK
+                 /\ [] Consistency = "eventual" -> Eventual
+
 Хорошее введение в TLA+ - книга Practical TLA и видеокурс Лесли Лампорта. А хороший подробный справочник - Specifying Systems.
 
 ### Моделирование распределенных систем

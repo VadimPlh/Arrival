@@ -61,11 +61,11 @@ TLA+ - это язык формальной спецификации, котор
 
 Мьютекс гарантирует свободу от голодания, то есть каждый поток попалет в критическую секцию.
 
-    Liveness == \A t \in Thread: <>(pc[t] = "CS")
+    StarvationFreedom == \A t \in Thread: []<>(pc[t] = "CS")
 
 Все реплики в конечном итоге придут к одному состоянию
 
-    Liveness == <>[] (\A i, j \in Regions : Database[i] = Database[j])
+    EventualConsistency == <>[] (\A i, j \in Regions : Database[i] = Database[j])
 
 Хорошее введение в TLA+ - книга Practical TLA и видеокурс Лесли Лампорта. А хороший подробный справочник - Specifying Systems.
 

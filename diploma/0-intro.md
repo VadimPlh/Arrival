@@ -63,14 +63,9 @@ TLA+ - это язык формальной спецификации, котор
 
     Liveness == \A t \in Thread: <>(pc[t] = "CS")
 
-Каждая из реплик когда-то скачает себе все данные
+Все реплики в конечном итоге придут к одному состоянию
 
-    Eventual == \A i \in DOMAIN History :
-                LET r == History[i].region
-                IN History[i].data \in {Database[r][j] : j \in DOMAIN Database[r]} \union {0}
-
-    Invariant == /\ TypeOK
-                 /\ [] Consistency = "eventual" -> Eventual
+    Liveness == <>[] (\A i, j \in Regions : Database[i] = Database[j])
 
 Хорошее введение в TLA+ - книга Practical TLA и видеокурс Лесли Лампорта. А хороший подробный справочник - Specifying Systems.
 

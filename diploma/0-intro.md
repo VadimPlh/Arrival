@@ -66,8 +66,6 @@ TLA+ - это язык формальной спецификации, котор
 
     Liveness == \A t \in Thread: <>(pc[t] = "CS")
 
-
-
 * Свойство для SI
 
     FirstCommitterWins ==
